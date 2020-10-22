@@ -15,7 +15,7 @@ VMK_ReturnStatus
 gpioDebug_worldFunc(void *clientData) // IN: adapter
 {
    VMK_ReturnStatus status = VMK_OK;
-   gpio_Device_t *adapter = (gpio_Device_t *)clientData;
+   //gpio_Device_t *adapter = (gpio_Device_t *)clientData;
 
    do {
       status = vmk_WorldWait(VMK_EVENT_NONE,
@@ -25,7 +25,7 @@ gpioDebug_worldFunc(void *clientData) // IN: adapter
       
       /* Adapter must be initialized by now */
       //gpio_dumpMMIOMem(adapter);
-      gpioDebug_dumpPins(adapter);
+      //gpioDebug_dumpPins(adapter);
    } while (status != VMK_DEATH_PENDING);
 
    return status;
