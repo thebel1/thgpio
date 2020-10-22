@@ -65,7 +65,6 @@ enum {
  * The gpio adapter. It should only ever be allocated once since there is only
  * one gpio interface on a Raspberry Pi.
  */
-typedef struct gpio_DevOps_t gpio_DevOps_t;
 typedef struct gpio_Device_t {
    /* since we only have one device, we store its init state */
    vmk_Bool initialized;
@@ -93,35 +92,8 @@ typedef struct gpio_Device_t {
    char *mmioBase;
    /* size of mmio space */
    vmk_ByteCount mmioLen;
-   /* device operations */
-   gpio_DevOps_t *devOps;
 } gpio_Device_t;
 extern gpio_Device_t gpio_Device;
-
-/*
- * Device ops
- */
-typedef VMK_ReturnStatus (*gpio_dumpMMIOMem_t)(gpio_Device_t *adapter);
-typedef VMK_ReturnStatus (*gpio_dumpRegisters_t)(gpio_Device_t *adapter);
-typedef VMK_ReturnStatus (*gpio_changeIntrState_t)(gpio_Device_t *adapter,
-                                                   vmk_uint64 curState,
-                                                   vmk_uint64 newState);
-typedef VMK_ReturnStatus (*gpio_setupIntr_t)(gpio_Device_t *adapter);
-typedef VMK_ReturnStatus (*gpio_ackIntr_t)(void *clientData,
-                                           vmk_IntrCookie intrCookie);
-typedef VMK_ReturnStatus (*gpio_waitIntr_t)(gpio_Device_t *adapter);
-typedef void (*gpio_destroyIntr_t)(gpio_Device_t *adapter);
-typedef struct gpio_DevOps_t {
-   gpio_dumpMMIOMem_t dumpMem;
-   gpio_dumpRegisters_t dumpRegs;
-   gpio_changeIntrState_t changeIntrState;
-   gpio_setupIntr_t setupIntr;
-   gpio_ackIntr_t ackIntr;
-   vmk_IntrHandler intrHandler;
-   gpio_waitIntr_t waitIntr;
-   gpio_destroyIntr_t destroyIntr;
-} gpio_DevOps_t;
-extern gpio_DevOps_t gpio_DevOps;
 
 /***********************************************************************/
 

@@ -18,7 +18,7 @@
 
 #include "gpio.h"
 #include "gpio_types.h"
-#include "gpio_device.h"
+#include "gpio_drv.h"
 
 /***********************************************************************/
 
@@ -284,7 +284,6 @@ gpio_attachDevice(vmk_Device device)
               sizeof(adapter->mmioMappedAddr));
    adapter->mmioBase = (void *)mappedAddr.address.vaddr;
    adapter->mmioLen = mappedAddr.len;
-   adapter->devOps = &gpio_DevOps;
    adapter->initialized = VMK_TRUE;
 
    /*
@@ -304,7 +303,7 @@ gpio_attachDevice(vmk_Device device)
     * Launch debug world for gpio adapter
     */
 #ifdef GPIO_DEBUG
-   /*vmk_WorldProps debugWorldProps;
+   vmk_WorldProps debugWorldProps;
    debugWorldProps.moduleID = vmk_ModuleCurrentID;
    debugWorldProps.name = "gpio_debug_world";
    debugWorldProps.startFunction = gpioDebug_worldFunc;
@@ -319,21 +318,21 @@ gpio_attachDevice(vmk_Device device)
                            vmk_StatusToString(status));
       vmk_WorldDestroy(gpioDebugWorldID);
       vmk_WorldWaitForDeath(gpioDebugWorldID);
-   }*/
+   }
    
    /* Dump mmio mem */
-   //adapter->devOps->dumpMem(adapter);
+   //gpio_dumpMMIOMem(adapter);
 
    /* Zero out gpio mem and see what happens */
    //gpioDebug_zeroOutMMIOMem(adapter);
 
    /* Dump mmio mem */
-   //adapter->devOps->dumpMem(adapter);
+   //gpio_dumpMMIOMem(adapter);
 #endif /* GPIO_DEBUG */
 
 #ifdef GPIO_DEBUG
    //gpioDebug_forceIntr(adapter);
-   gpio_debugTestPins(adapter);
+   gpioDebug_testPins(adapter);
 #endif /* GPIO_DEBUG */
 
    return status;

@@ -1,5 +1,5 @@
 /*
- * gpio_device.c --
+ * gpio_drv.c --
  *
  *    Implementation of gpio interface
  *
@@ -7,20 +7,7 @@
  */
 
 #include "gpio.h"
-#include "gpio_device.h"
-
-/***********************************************************************/
-
-gpio_DevOps_t gpio_DevOps = {
-   .dumpMem = gpio_dumpMMIOMem,
-   .dumpRegs = gpio_dumpRegisters,
-   .changeIntrState = gpio_changeIntrState,
-   .setupIntr = gpio_setupIntr,
-   .ackIntr = gpio_ackIntr,
-   .intrHandler = gpio_intrHandler,
-   .waitIntr = gpio_waitIntr,
-   .destroyIntr = gpio_destroyIntr,
-};
+#include "gpio_drv.h"
 
 /*
  ***********************************************************************
@@ -124,9 +111,9 @@ gpio_setupIntr(gpio_Device_t *adapter)
    vmk_IntrProps intrProps;
    int numIntrsAllocated;
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_NONE,
-                                             GPIO_INT_BUSY_UP);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_NONE,
+                                 GPIO_INT_BUSY_UP);
    if (status != VMK_OK) {
       goto change_intr_failed;
    }
@@ -153,8 +140,8 @@ gpio_setupIntr(gpio_Device_t *adapter)
     */
    vmk_NameCopy(&intrProps.deviceName, &gpio_Driver.driverName);
    intrProps.device = adapter->vmkDevice;
-   intrProps.acknowledgeInterrupt = adapter->devOps->ackIntr;
-   intrProps.handler = adapter->devOps->intrHandler;
+   intrProps.acknowledgeInterrupt = gpio_ackIntr;
+   intrProps.handler = gpio_intrHandler;
    intrProps.handlerData = adapter;
    intrProps.attrs = VMK_INTR_ATTRS_ENTROPY_SOURCE;
    status = vmk_IntrRegister(vmk_ModuleCurrentID,
@@ -186,9 +173,9 @@ gpio_setupIntr(gpio_Device_t *adapter)
       goto enable_intr_failed;
    }
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_BUSY_UP,
-                                             GPIO_INT_READY);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_BUSY_UP,
+                                 GPIO_INT_READY);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: failed to revert interrupt state: %s",
                          GPIO_DRIVER_NAME,
@@ -201,9 +188,9 @@ gpio_setupIntr(gpio_Device_t *adapter)
 enable_intr_failed:
 reg_intr_failed:
 alloc_intr_cookie_failed:
-   adapter->devOps->changeIntrState(adapter,
-                                    GPIO_INT_BUSY_UP,
-                                    GPIO_INT_NONE);
+   gpio_changeIntrState(adapter,
+                        GPIO_INT_BUSY_UP,
+                        GPIO_INT_NONE);
 
 change_intr_failed:
    return status;
@@ -223,9 +210,9 @@ gpio_ackIntr(void *clientData,            // IN
    VMK_ReturnStatus status = VMK_OK;
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_SIGNAL,
-                                             GPIO_INT_HANDLE_START);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_SIGNAL,
+                                 GPIO_INT_HANDLE_START);
    if (status != VMK_OK) {
       return VMK_NOT_THIS_DEVICE;
    }
@@ -248,9 +235,9 @@ gpio_intrHandler(void *clientData,            // IN
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
    vmk_WorldID worldID;
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_HANDLE_START,
-                                             GPIO_INT_HANDLE_END);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_HANDLE_START,
+                                 GPIO_INT_HANDLE_END);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: unable to change interrupt state: %s",
                          GPIO_DRIVER_NAME,
@@ -263,9 +250,9 @@ gpio_intrHandler(void *clientData,            // IN
 
    worldID = adapter->wakeWorld;
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_HANDLE_END,
-                                             GPIO_INT_READY);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_HANDLE_END,
+                                 GPIO_INT_READY);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: unable to revert interrupt state: %s",
                          GPIO_DRIVER_NAME,
@@ -293,9 +280,9 @@ gpio_waitIntr(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_READY,
-                                             GPIO_INT_SIGNAL);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_READY,
+                                 GPIO_INT_SIGNAL);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: unable to change interrupt state: %s",
                          GPIO_DRIVER_NAME,
@@ -351,9 +338,9 @@ gpio_waitIntr(gpio_Device_t *adapter)
    //DEBUG
    return status;
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_SIGNAL,
-                                             GPIO_INT_READY);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_SIGNAL,
+                                 GPIO_INT_READY);
    vmk_WarningMessage("%s: %s: unable to revert interrupt state: %s",
                       GPIO_DRIVER_NAME,
                       __FUNCTION__,
@@ -379,9 +366,9 @@ gpio_destroyIntr(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status;
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_READY,
-                                             GPIO_INT_BUSY_DOWN);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_READY,
+                                 GPIO_INT_BUSY_DOWN);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: unable to change interrupt state: %s",
                          GPIO_DRIVER_NAME,
@@ -419,9 +406,9 @@ gpio_destroyIntr(gpio_Device_t *adapter)
       goto free_cookie_failed;
    }
 
-   status = adapter->devOps->changeIntrState(adapter,
-                                             GPIO_INT_BUSY_DOWN,
-                                             GPIO_INT_NONE);
+   status = gpio_changeIntrState(adapter,
+                                 GPIO_INT_BUSY_DOWN,
+                                 GPIO_INT_NONE);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: unable to revert interrupt state: %s",
                          GPIO_DRIVER_NAME,

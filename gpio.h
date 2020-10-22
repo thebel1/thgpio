@@ -30,6 +30,8 @@
 #define GPIO_MIN(a, b) (a > b ? b : a)
 #define GPIO_MAX(a, b) (a > b ? a : b)
 
+#define GPIO_INT_MAX ((vmk_uint32)~0)
+
 /***********************************************************************/
 
 /*

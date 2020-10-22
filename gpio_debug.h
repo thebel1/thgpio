@@ -7,7 +7,7 @@
 
 #include "gpio.h"
 #include "gpio_types.h"
-#include "gpio_device.h"
+#include "gpio_drv.h"
 
 /***********************************************************************/
 
@@ -76,7 +76,9 @@ VMK_ReturnStatus gpioDebug_zeroOutMMIOMem(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_forceIntr(gpio_Device_t *adapter);
 
-VMK_ReturnStatus gpio_debugTestPins(gpio_Device_t *adapter);
+VMK_ReturnStatus gpioDebug_testPins(gpio_Device_t *adapter);
+
+VMK_ReturnStatus gpioDebug_dumpPins(gpio_Device_t *adapter);
 
 /***********************************************************************/
 

@@ -54,7 +54,7 @@ gpio_identification = {
 module_def = {
    "identification"  : gpio_identification,
    "source files"    : [ "gpio_os.c",
-                         "gpio_device.c",
+                         "gpio_drv.c",
                          "gpio_debug.c",
                        ],
 }
@@ -83,8 +83,8 @@ gpio_vib_def = {
       "maintenance-mode"        : False,
       "hwplatform"              : [ ],
       "acceptance-level"        : 'community',
-      "live-install-allowed"    : True,
-      "live-remove-allowed"     : 'true',
+      "live-install-allowed"    : False,
+      "live-remove-allowed"     : 'false',
       "cimom-restart"           : False,
       "stateless-ready"         : 'True',
       "overlay"                 : False,

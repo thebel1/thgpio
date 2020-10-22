@@ -1,20 +1,19 @@
 /*
- * gpio_device.h --
+ * gpio_drv.h --
  *
  *    Definition for gpio device layer interface
  * 
  * References:
  * 
  *    - https://github.com/RPi-Distro/raspi-gpio/blob/master/raspi-gpio.c
- *    - 
  * 
  * TODO:
- *    - rename to gpio_hw.h to better reflect this file's purpose
+ *    - rename to gpio_drv.h to better reflect this file's purpose
  *    - create a gpio_dpi.c/.h to control 
  */
 
-#ifndef GPIO_DEVICE_H
-#define GPIO_DEVICE_H
+#ifndef GPIO_DRV_H
+#define GPIO_DRV_H
 
 #include "gpio_types.h"
 
@@ -26,10 +25,13 @@
  * TODO:
  *    - implement vmk status reporting
  * 
- * Reference: https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2835/BCM2835-ARM-Peripherals.pdf
+ * References:
+ * - https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2711/rpi_DATA_2711_1p0.pdf
+ * - https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2835/BCM2835-ARM-Peripherals.pdf
  */
 
-#define GPIO_NUM_PINS 54
+/* For the RPi 4B */
+#define GPIO_NUM_PINS 40
 
 #define GPIO_READ_REG(_adapter, _reg, _ptr)                                    \
    (vmk_MappedResourceRead32(&_adapter->mmioMappedAddr, _reg, _ptr))
@@ -61,9 +63,55 @@
       if (_pin < 32) {  /* bank 0 */                                           \
          GPIO_READ_REG(_adapter, GPLEV0, _ptr);                                \
       } else { /* bank1 */                                                     \
-         GPIO_READ_REG(_adapter, GPLEV1, _ptr);                  \
+         GPIO_READ_REG(_adapter, GPLEV1, _ptr);                                \
       }                                                                        \
-      *_ptr = *_ptr & (1 << (_pin % 32));                                      \
+      *_ptr = ((vmk_uint32)(*_ptr) & (1 << (_pin % 32))) >> _pin;              \
+   } while(0)
+
+
+#define GPIO_READ_BANK(_adapter, _bank, _ptr)                                  \
+   GPIO_READ_REG(_adapter, GPLEV##_bank, _ptr)
+
+/*
+ * GPIO select register macros.
+ */
+
+#define GPIO_SEL_IN  0
+#define GPIO_SEL_OUT 1
+#define GPIO_SEL_F0  (1 << 2)
+#define GPIO_SEL_F1  ((1 << 2) | 1)
+#define GPIO_SEL_F2  ((1 << 2) | (1 << 1))
+#define GPIO_SEL_F3  ((1 << 2) | (1 << 1) | 1)
+#define GPIO_SEL_F4  ((1 << 1) | 1)
+#define GPIO_SEL_F5  (1 << 1)
+#define GPIO_FSELX(_pin, _val) (_val << ((_pin % 10) * 3))
+#define GPIO_SEL(_adapter, _pin, _val)                                         \
+   do {                                                                        \
+      vmk_uint32 _sel = GPIO_FSELX(_pin, _val);                                \
+      if (_pin < 10) {                                                         \
+         GPIO_WRITE_REG(_adapter, GPFSEL0, _sel);                              \
+      }                                                                        \
+      else if (_pin < 20) {                                                    \
+         GPIO_WRITE_REG(_adapter, GPFSEL1, _sel);                              \
+      }                                                                        \
+      else if (_pin < 30) {                                                    \
+         GPIO_WRITE_REG(_adapter, GPFSEL2, _sel);                              \
+      }                                                                        \
+      else if (_pin < 40) {                                                    \
+         GPIO_WRITE_REG(_adapter, GPFSEL3, _sel);                              \
+      }                                                                        \
+      else if (_pin < 50) {                                                    \
+         GPIO_WRITE_REG(_adapter, GPFSEL4, _sel);                              \
+      }                                                                        \
+      else if (_pin < 60) {                                                    \
+         GPIO_WRITE_REG(_adapter, GPFSEL5, _sel);                              \
+      }                                                                        \
+      else {                                                                   \
+         vmk_WarningMessage("%s: %s: invalid gpio pin: %d",                    \
+                            GPIO_DRIVER_NAME,                                  \
+                            __FUNCTION__,                                      \
+                            _pin);                                             \
+      }                                                                        \
    } while(0)
 
 /*
@@ -145,4 +193,4 @@ void gpio_destroyIntr(gpio_Device_t *adapter);
 
 /***********************************************************************/
 
-#endif /* GPIO_DEVICE_H */
+#endif /* GPIO_DRV_H */
