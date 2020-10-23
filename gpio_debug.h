@@ -80,7 +80,14 @@ VMK_ReturnStatus gpioDebug_testPins(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_dumpPins(gpio_Device_t *adapter);
 
-VMK_ReturnStatus gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter);
+VMK_ReturnStatus gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
+                                            vmk_uint8 red,
+                                            vmk_uint8 green,
+                                            vmk_uint8 blue,
+                                            vmk_uint8 brightness);
+
+VMK_ReturnStatus gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
+                                           int intervalMs);
 
 /***********************************************************************/
 

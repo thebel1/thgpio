@@ -329,9 +329,9 @@ gpio_attachDevice(vmk_Device device)
    //gpioDebug_turnOffEachPinAndWait(adapter, 5000);
    //gpioDebug_turnOnEachPinAndWait(adapter, 5000);
 
-   vmk_LogMessage("%s: %s: attempting to turn off fan",
+   /*vmk_LogMessage("%s: %s: attempting to turn off fan",
                   GPIO_DRIVER_NAME,
-                  __FUNCTION__);
+                  __FUNCTION__);*/
 
    //gpioDebug_fanShimToggle(adapter);
 
@@ -343,7 +343,9 @@ gpio_attachDevice(vmk_Device device)
    //gpio_funcSelPin(adapter, 18, GPIO_SEL_OUT);
    //gpio_clrPin(adapter, 18);
 
-   gpioDebug_fanShimTurnOnLED(adapter);
+   //gpioDebug_fanShimFlashLED(adapter, 500);
+   
+   //gpioDebug_fanShimTurnOnLED(adapter, 0, 255, 0, 1);
 #endif /* GPIO_DEBUG */
 
    return status;
@@ -447,6 +449,10 @@ gpio_startDevice(vmk_Device device)
                   __FUNCTION__,
                   adapter->mmioBase,
                   device);
+
+#ifdef GPIO_DEBUG
+   gpioDebug_fanShimTurnOnLED(adapter, 0, 255, 0, 1);
+#endif /* GPIO_DEBUG */
 
    return status;
 }
