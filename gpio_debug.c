@@ -382,9 +382,9 @@ gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
                         ~0, ~0, ~0, ~0};
    vmk_uint8 bufOff[] = {0, 0, 0, 0,
                          brightness,
-                         blue,
-                         green,
-                         red,
+                         0,
+                         0,
+                         0,
                          ~0, ~0, ~0, ~0};
    vmk_uint8 *curBuf = bufOff;
    int bufLen = sizeof(bufOn);
@@ -439,11 +439,33 @@ gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
 
 /*
  ***********************************************************************
+ * gpioDebug_fanShimPulseLED --
+ * 
+ *    Pulses the LED in a particular color on the FanShim accessory.  
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpioDebug_fanShimPulseLED(gpio_Device_t *adapter,
+                          vmk_uint8 red,
+                          vmk_uint8 green,
+                          vmk_uint8 blue,
+                          vmk_uint8 brightness,
+                          int intervalMs)
+{
+   
+}
+
+/*
+ ***********************************************************************
  * gpioDebug_fanShimRainbowLED --
  * 
  *    Pulses the LED in rainbow colors on the FanShim accessory.  
- *    References:
- *       - https://datasheetspdf.com/pdf-file/905213/GreeledElectronic/APA102/1 
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
