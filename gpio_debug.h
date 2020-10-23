@@ -12,7 +12,7 @@
 /***********************************************************************/
 
 /* Run debug world every second */
-#define GPIO_DEBUG_WORLD_SLEEP_MS 1000
+#define GPIO_DEBUG_WORLD_SLEEP_MS 5000
 
 /***********************************************************************/
 
@@ -72,13 +72,23 @@ typedef struct Debug_VMKAcpiPnpDevice {
 
 VMK_ReturnStatus gpioDebug_worldFunc(void *clientData);
 
-VMK_ReturnStatus gpioDebug_zeroOutMMIOMem(gpio_Device_t *adapter);
+VMK_ReturnStatus gpioDebug_dumpMMIOMem(gpio_Device_t *adapter);
 
-VMK_ReturnStatus gpioDebug_forceIntr(gpio_Device_t *adapter);
+VMK_ReturnStatus gpioDebug_dumpRegisters(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_testPins(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_dumpPins(gpio_Device_t *adapter);
+
+VMK_ReturnStatus gpioDebug_piHutFanShimToggle(gpio_Device_t *adapter);
+
+VMK_ReturnStatus gpioDebug_blinkEachPinOnce(gpio_Device_t *adapter, int waitMs);
+
+VMK_ReturnStatus gpioDebug_turnOnEachPinAndWait(gpio_Device_t *adapter,
+                                                int waitMs);
+
+VMK_ReturnStatus gpioDebug_turnOffEachPinAndWait(gpio_Device_t *adapter,
+                                                 int waitMs);
 
 /***********************************************************************/
 

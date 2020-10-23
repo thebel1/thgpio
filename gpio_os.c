@@ -321,18 +321,24 @@ gpio_attachDevice(vmk_Device device)
    }
    
    /* Dump mmio mem */
-   //gpio_dumpMMIOMem(adapter);
-
-   /* Zero out gpio mem and see what happens */
-   //gpioDebug_zeroOutMMIOMem(adapter);
-
-   /* Dump mmio mem */
-   //gpio_dumpMMIOMem(adapter);
+   //gpioDebug_dumpMMIOMem(adapter);
 #endif /* GPIO_DEBUG */
 
 #ifdef GPIO_DEBUG
-   //gpioDebug_forceIntr(adapter);
-   gpioDebug_testPins(adapter);
+   //gpioDebug_testPins(adapter);
+   //gpioDebug_turnOffEachPinAndWait(adapter, 5000);
+   //gpioDebug_turnOnEachPinAndWait(adapter, 5000);
+
+   vmk_LogMessage("%s: %s: attempting to turn off fan",
+                  GPIO_DRIVER_NAME,
+                  __FUNCTION__);
+
+   gpioDebug_piHutFanShimToggle(adapter);
+
+   /* Select gpio pin 18 */
+   //*((int *)adapter->mmioBase + 1) = 0b001 << 24;
+   /* Clear gpio pin 18 */
+   //*((int *)adapter->mmioBase + 10) = 1 << 18;
 #endif /* GPIO_DEBUG */
 
    return status;

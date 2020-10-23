@@ -33,6 +33,9 @@
 /* For the RPi 4B */
 #define GPIO_NUM_PINS 40
 
+#define GPIO_PIN_HI 1
+#define GPIO_PIN_LO 0
+
 #define GPIO_READ_REG(_adapter, _reg, _ptr)                                    \
    (vmk_MappedResourceRead32(&_adapter->mmioMappedAddr, _reg, _ptr))
 
@@ -68,24 +71,41 @@
       *_ptr = ((vmk_uint32)(*_ptr) & (1 << (_pin % 32))) >> _pin;              \
    } while(0)
 
+#define GPIO_TOGGLE_PIN(_adapter, _pin)                                        \
+   do {                                                                        \
+      vmk_uint32 _val;                                                         \
+      GPIO_GET_PIN(_adapter, _pin, &_val);                                     \
+      if (_val == GPIO_PIN_HI) {                                               \
+         GPIO_CLR_PIN(_adapter, _pin);                                         \
+      }                                                                        \
+      else {                                                                   \
+         GPIO_SET_PIN(_adapter, _pin);                                         \
+      }                                                                        \
+   } while(0)
 
 #define GPIO_READ_BANK(_adapter, _bank, _ptr)                                  \
    GPIO_READ_REG(_adapter, GPLEV##_bank, _ptr)
+
+#define GPIO_CLR_BANK(_adapter, _bank)                                         \
+   GPIO_WRITE_REG(_adapter, GPCLR##_bank, (vmk_uint32)~0)
+
+#define GPIO_SET_BANK(_adapter, _bank)                                         \
+   GPIO_WRITE_REG(_adapter, GPSET##_bank, (vmk_uint32)~0)
 
 /*
  * GPIO select register macros.
  */
 
-#define GPIO_SEL_IN  0
-#define GPIO_SEL_OUT 1
-#define GPIO_SEL_F0  (1 << 2)
-#define GPIO_SEL_F1  ((1 << 2) | 1)
-#define GPIO_SEL_F2  ((1 << 2) | (1 << 1))
-#define GPIO_SEL_F3  ((1 << 2) | (1 << 1) | 1)
-#define GPIO_SEL_F4  ((1 << 1) | 1)
-#define GPIO_SEL_F5  (1 << 1)
+#define GPIO_SEL_IN  0b000
+#define GPIO_SEL_OUT 0b001
+#define GPIO_SEL_F0  0b100
+#define GPIO_SEL_F1  0b101
+#define GPIO_SEL_F2  0b110
+#define GPIO_SEL_F3  0b111
+#define GPIO_SEL_F4  0b011
+#define GPIO_SEL_F5  0b010
 #define GPIO_FSELX(_pin, _val) (_val << ((_pin % 10) * 3))
-#define GPIO_SEL(_adapter, _pin, _val)                                         \
+#define GPIO_SEL_PIN(_adapter, _pin, _val)                                     \
    do {                                                                        \
       vmk_uint32 _sel = GPIO_FSELX(_pin, _val);                                \
       if (_pin < 10) {                                                         \
@@ -170,10 +190,6 @@
 #define GPPUDCLK1 0x9c     /* gpio pin pull-up/down enable clock 1 */
 
 /***********************************************************************/
-
-VMK_ReturnStatus gpio_dumpMMIOMem(gpio_Device_t *adapter);
-
-VMK_ReturnStatus gpio_dumpRegisters(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpio_changeIntrState(gpio_Device_t *adapter,
                                       vmk_uint64 curState,

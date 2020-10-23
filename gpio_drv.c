@@ -4,74 +4,14 @@
  *    Implementation of gpio interface
  *
  *    Some ideas taken from /bora/modules/vmkernel/arm64/armtestacpivmkapi/armtestacpivmkapi.c
+ * 
+ * TODO:
+ *    - fix up interrupts to work as described here:
+ *       https://www.raspberrypi.org/documentation/hardware/raspberrypi/gpio/README.md
  */
 
 #include "gpio.h"
 #include "gpio_drv.h"
-
-/*
- ***********************************************************************
- * gpio_dumpMMIOMem --
- *
- *    Dump the mapped mmio memory to log.
- ***********************************************************************
- */
-VMK_ReturnStatus
-gpio_dumpMMIOMem(gpio_Device_t *adapter)
-{
-   VMK_ReturnStatus status = VMK_OK;
-   char *buf;
-   int bufLen;
-   int i, j;
-   char val;
-
-   vmk_LogMessage("%s: %s: dumping io space mapped to %p of length %d",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  adapter->mmioBase,
-                  adapter->mmioLen);
-
-   bufLen = 24;
-   buf = vmk_HeapAlloc(gpio_Driver.heapID, bufLen);
-   vmk_Memset(buf, 0, bufLen);
-   for (i = 0, j = 0; i < adapter->mmioLen; ++i, j += 3) {
-      if (j != 0 && j % 8 == 0) {
-         /* Print line */
-         j = 0;
-         buf[bufLen - 1] = '\0';
-         vmk_LogMessage("%s: %s: %s", GPIO_DRIVER_NAME, __FUNCTION__, buf);
-      }
-      val = *(adapter->mmioBase + i);
-      vmk_Sprintf(&buf[j], "%02x ", val);
-   }
-
-   /* Dump remaining bytes */
-   buf[j] = '\0';
-   vmk_LogMessage("%s: %s: %s", GPIO_DRIVER_NAME, __FUNCTION__, buf);
-
-   /*
-    * This PSODs the machine somehow, so for now I'll just live with the memory
-    * leak.
-    */
-   //vmk_HeapFree(gpio_Driver.heapID, buf);
-
-   return status;
-}
-
-/*
- ***********************************************************************
- * gpio_DumgRegisters --
- * 
- *    Dumps the gpio registers to log.
- ***********************************************************************
- */
-VMK_ReturnStatus
-gpio_dumpRegisters(gpio_Device_t *adapter)
-{
-   VMK_ReturnStatus status = VMK_OK;
-
-   return status;
-}
 
 /*
  ***********************************************************************
@@ -422,3 +362,10 @@ disable_intr_failed:
 change_intr_failed:
    return;
 }
+
+/*
+ ***********************************************************************
+ * gpio_ --
+ * 
+ ***********************************************************************
+ */
