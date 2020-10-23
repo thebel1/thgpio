@@ -333,12 +333,17 @@ gpio_attachDevice(vmk_Device device)
                   GPIO_DRIVER_NAME,
                   __FUNCTION__);
 
-   gpioDebug_piHutFanShimToggle(adapter);
+   //gpioDebug_fanShimToggle(adapter);
 
    /* Select gpio pin 18 */
    //*((int *)adapter->mmioBase + 1) = 0b001 << 24;
    /* Clear gpio pin 18 */
    //*((int *)adapter->mmioBase + 10) = 1 << 18;
+
+   //gpio_funcSelPin(adapter, 18, GPIO_SEL_OUT);
+   //gpio_clrPin(adapter, 18);
+
+   gpioDebug_fanShimTurnOnLED(adapter);
 #endif /* GPIO_DEBUG */
 
    return status;

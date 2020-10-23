@@ -80,15 +80,7 @@ VMK_ReturnStatus gpioDebug_testPins(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_dumpPins(gpio_Device_t *adapter);
 
-VMK_ReturnStatus gpioDebug_piHutFanShimToggle(gpio_Device_t *adapter);
-
-VMK_ReturnStatus gpioDebug_blinkEachPinOnce(gpio_Device_t *adapter, int waitMs);
-
-VMK_ReturnStatus gpioDebug_turnOnEachPinAndWait(gpio_Device_t *adapter,
-                                                int waitMs);
-
-VMK_ReturnStatus gpioDebug_turnOffEachPinAndWait(gpio_Device_t *adapter,
-                                                 int waitMs);
+VMK_ReturnStatus gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter);
 
 /***********************************************************************/
 

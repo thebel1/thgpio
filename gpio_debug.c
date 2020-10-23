@@ -16,6 +16,7 @@ gpioDebug_worldFunc(void *clientData) // IN: adapter
 {
    VMK_ReturnStatus status = VMK_OK;
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
+   int val;
 
    /* So the compiler stops complaining when it's not used */
    adapter = adapter;
@@ -29,10 +30,23 @@ gpioDebug_worldFunc(void *clientData) // IN: adapter
       /* Adapter must be initialized by now */
       //gpioDebug_dumpMMIOMem(adapter);
       //gpioDebug_dumpPins(adapter);
-      //gpioDebug_piHutFanShimToggle(adapter);
+      //gpioDebug_fanShimToggle(adapter);
       //gpioDebug_blinkEachPinOnce(adapter, GPIO_DEBUG_WORLD_SLEEP_MS);
       //gpioDebug_turnOffEachPinAndWait(adapter, 5000);
       //gpioDebug_turnOnEachPinAndWait(adapter, 5000);
+
+      vmk_LogMessage("%s: %s: toggling fan",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__);
+
+      gpio_funcSelPin(adapter, 18, GPIO_SEL_OUT);
+      gpio_levPin(adapter, 18, &val);
+      if (val) {
+         gpio_clrPin(adapter, 18);
+      }
+      else {
+         gpio_setPin(adapter, 18);
+      }
    } while (status != VMK_DEATH_PENDING);
 
    return status;
@@ -113,33 +127,15 @@ VMK_ReturnStatus
 gpioDebug_dumpPins(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
-   int bank0, bank1;
    int i, oldVal, newVal;
 
-   GPIO_READ_BANK(adapter, 0, &bank0);
-   GPIO_READ_BANK(adapter, 1, &bank1);
-
-   vmk_LogMessage("%s: %s: gpio bank0 0x%x bank1 0x%x",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  bank0,
-                  bank1);
-
    for (i = 0; i < GPIO_NUM_PINS; ++i) {
-      GPIO_GET_PIN(adapter, i, &oldVal);
+      gpio_levPin(adapter, i, &oldVal);
       
       /* Select the pin */
-      GPIO_SEL_PIN(adapter, i, GPIO_SEL_OUT);
-
-      /* Flip pin */
-      /*if (oldVal == 0) {
-         GPIO_SET_PIN(adapter, i);
-      }
-      else {
-         GPIO_CLR_PIN(adapter, i);
-      }*/
+      gpio_funcSelPin(adapter, i, GPIO_SEL_OUT);
       
-      GPIO_GET_PIN(adapter, i, &newVal);
+      gpio_levPin(adapter, i, &newVal);
 
       vmk_LogMessage("%s: %s: gpio pin %d oldVal 0x%x newVal 0x%x",
                      GPIO_DRIVER_NAME,
@@ -164,40 +160,30 @@ VMK_ReturnStatus
 gpioDebug_testPins(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
-   int bank0, bank1;
    int i, oldVal, newVal;
 
-   GPIO_READ_BANK(adapter, 0, &bank0);
-   GPIO_READ_BANK(adapter, 1, &bank1);
-
-   vmk_LogMessage("%s: %s: gpio bank0 0x%x bank1 0x%x",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  bank0,
-                  bank1);
-
    for (i = 0; i < GPIO_NUM_PINS; ++i) {
-      GPIO_GET_PIN(adapter, i, &oldVal);
+      gpio_levPin(adapter, i, &oldVal);
       
       /* Select the pin */
-      GPIO_SEL_PIN(adapter, i, GPIO_SEL_OUT);
+      gpio_funcSelPin(adapter, i, GPIO_SEL_OUT);
 
       /* Flip pin */
       if (oldVal == 0) {
-         GPIO_SET_PIN(adapter, i);
+         gpio_setPin(adapter, i);
       }
       else {
-         GPIO_CLR_PIN(adapter, i);
+         gpio_clrPin(adapter, i);
       }
       
-      GPIO_GET_PIN(adapter, i, &newVal);
+      gpio_levPin(adapter, i, &newVal);
       
       /* Flip pin back */
       if (oldVal == 1) {
-         GPIO_SET_PIN(adapter, i);
+         gpio_setPin(adapter, i);
       }
       else {
-         GPIO_CLR_PIN(adapter, i);
+         gpio_clrPin(adapter, i);
       }
 
       vmk_LogMessage("%s: %s: gpio pin %d oldVal 0x%x newVal 0x%x",
@@ -213,139 +199,56 @@ gpioDebug_testPins(gpio_Device_t *adapter)
 
 /*
  ***********************************************************************
- * gpioDebug_piHutFanShimToggle --
+ * gpioDebug_fanShimTurnOnLED --
  * 
- *    Turns the PiHut FanShim's fan on or off. This is used as a test
- *    device to figure out how controlling the pins works.
- * 
- *    See:
- *       - https://github.com/flobernd/raspi-fanshim/blob/master/src/Fanshim.c
- *       - http://wiringpi.com/wp-content/uploads/2013/03/pins.pdf
+ * Refernces:
+ *    - https://github.com/flobernd/raspi-apa102
+ *    - https://github.com/pimoroni/apa102-python/blob/master/library/apa102/__init__.py
  ***********************************************************************
  */
-#define PIHUT_FANSHIM_FAN_PIN 29
+#define RASPI_FANSHIM_PIN_SPI_SCLK  14
+#define RASPI_FANSHIM_PIN_SPI_MOSI  15
+#define RASPI_APA102_CLCK_STRETCH 5
 VMK_ReturnStatus
-gpioDebug_piHutFanShimToggle(gpio_Device_t *adapter)
+gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
-   int curVal;
+   vmk_uint8 buf[] = {0, 0, 0, 0,               /* SOF */
+                      0b11100000 | (1 * 31),    /* brightness */
+                      0,                        /* blue */
+                      255,                      /* green */
+                      0,                        /* red */
+                      1, 1, 1, 1};              /* EOF */
+   int bufLen = 12;
+   int i, j;
 
-   GPIO_SEL_PIN(adapter, PIHUT_FANSHIM_FAN_PIN, GPIO_SEL_OUT);
-   GPIO_GET_PIN(adapter, PIHUT_FANSHIM_FAN_PIN, &curVal);
+   gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, GPIO_SEL_OUT);
+   gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, GPIO_SEL_OUT);
 
-   vmk_LogMessage("%s: %s: toggling PiHut FanShim (pin %d) from %d to %d",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  PIHUT_FANSHIM_FAN_PIN,
-                  curVal,
-                  GPIO_PIN_HI - curVal);
+   /* Set LED color */
+   for (i = 0; i < bufLen; ++i) {
+      vmk_uint8 byte = buf[i];
 
-   GPIO_TOGGLE_PIN(adapter, PIHUT_FANSHIM_FAN_PIN);
+      for (j = 0; j < 8; ++j) {
+         /* Slice off left-most bit */
+         vmk_Bool bit = (byte & 0x80) > 0;
 
-   return status;
-}
+         if (bit) {
+            gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+         }
+         else {
+            gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+         }
 
-/*
- ***********************************************************************
- * gpioDebug_blinkEachPinOnce --
- * 
- *    Flips each pin once.
- * 
- *    See:
- *       - https://github.com/flobernd/raspi-fanshim/blob/master/src/Fanshim.c
- *       - http://wiringpi.com/wp-content/uploads/2013/03/pins.pdf
- ***********************************************************************
- */
-VMK_ReturnStatus
-gpioDebug_blinkEachPinOnce(gpio_Device_t *adapter, int waitMs)
-{
-   VMK_ReturnStatus status = VMK_OK;
-   int i, curVal, newVal;
+         gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
+         status = vmk_WorldSleep(5);
+         gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
+         status = vmk_WorldSleep(5);
 
-   for (i = 0; i < GPIO_NUM_PINS; ++i) {
-      GPIO_SEL_PIN(adapter, i, GPIO_SEL_OUT);
-      GPIO_GET_PIN(adapter, i, &curVal);
-      GPIO_TOGGLE_PIN(adapter, i);
-      GPIO_GET_PIN(adapter, i, &newVal);
-
-      vmk_LogMessage("%s: %s: toggling pin %d from %d to %d and back",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     i,
-                     curVal,
-                     newVal);
-
-      status = vmk_WorldWait(VMK_EVENT_NONE,
-                             VMK_LOCK_INVALID,
-                             waitMs,
-                             __FUNCTION__);
-
-      GPIO_TOGGLE_PIN(adapter, i);
+         /* Shift left one bit so we can slice it like a salami */
+         byte <<= 1; 
+      }
    }
 
-   return status;
-}
-
-/*
- ***********************************************************************
- * gpioDebug_turnOnEachPinAndWait --
- *
- ***********************************************************************
- */
-VMK_ReturnStatus
-gpioDebug_turnOnEachPinAndWait(gpio_Device_t *adapter, int waitMs)
-{
-   VMK_ReturnStatus status = VMK_OK;
-   int i, val;
-
-   for (i = 0; i < GPIO_NUM_PINS; ++i) {
-      GPIO_SEL_PIN(adapter, i, GPIO_SEL_OUT);
-      GPIO_GET_PIN(adapter, i, &val);
-      GPIO_SET_PIN(adapter, i);
-      
-      vmk_LogMessage("%s: %s: turned ON pin %d (orig val %d)",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     i,
-                     val);
-
-      status = vmk_WorldWait(VMK_EVENT_NONE,
-                             VMK_LOCK_INVALID,
-                             waitMs,
-                             __FUNCTION__);
-   }
-
-   return status;
-}
-
-/*
- ***********************************************************************
- * gpioDebug_turnOffEachPinAndWait --
- *
- ***********************************************************************
- */
-VMK_ReturnStatus
-gpioDebug_turnOffEachPinAndWait(gpio_Device_t *adapter, int waitMs)
-{
-   VMK_ReturnStatus status = VMK_OK;
-   int i, val;
-
-   for (i = 0; i < GPIO_NUM_PINS; ++i) {
-      GPIO_SEL_PIN(adapter, i, GPIO_SEL_OUT);
-      GPIO_GET_PIN(adapter, i, &val);
-      GPIO_CLR_PIN(adapter, i);
-      
-      vmk_LogMessage("%s: %s: turned OFF pin %d (orig val %d)",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     i,
-                     val);
-
-      status = vmk_WorldWait(VMK_EVENT_NONE,
-                             VMK_LOCK_INVALID,
-                             waitMs,
-                             __FUNCTION__);
-   }
-
-   return status;
+   return VMK_OK;
 }

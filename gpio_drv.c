@@ -15,6 +15,182 @@
 
 /*
  ***********************************************************************
+ * gpio_readReg --
+ * 
+ ***********************************************************************
+ */
+VMK_INLINE
+VMK_ReturnStatus
+gpio_readReg(gpio_Device_t *adapter,   // IN
+             vmk_uint32 reg,           // IN
+             vmk_uint32 *ptr)          // OUT
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   status = vmk_MappedResourceRead32(&adapter->mmioMappedAddr, reg, ptr);
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_writedReg --
+ * 
+ ***********************************************************************
+ */
+VMK_INLINE
+VMK_ReturnStatus
+gpio_writeReg(gpio_Device_t *adapter,  // IN
+              vmk_uint32 reg,          // IN
+              vmk_uint32 val)          // IN
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr, reg, val);
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_funcSelPin --
+ * 
+ ***********************************************************************
+ */
+VMK_INLINE
+VMK_ReturnStatus
+gpio_funcSelPin(gpio_Device_t *adapter,   // IN
+                vmk_uint32 pin,           // IN
+                vmk_uint32 func)          // IN
+{
+   VMK_ReturnStatus status = VMK_OK;
+   vmk_uint32 offset, selector;
+
+   /*
+    * Place the bits to select the pin function at the correct location inside
+    * the gpio selector register.
+    */
+   selector = func << ((pin % 10) * 3);
+
+   if (pin < 10) {
+      offset = GPFSEL0;
+   }
+   else if (pin < 20) {
+      offset = GPFSEL1;
+   }
+   else if (pin < 30) {
+      offset = GPFSEL2;
+   }
+   else if (pin < 40) {
+      offset = GPFSEL3;
+   }
+   else if (pin < 50) {
+      offset = GPFSEL4;
+   }
+   else if (pin < 60) {
+      offset = GPFSEL5;
+   }
+   else {
+      status = VMK_NOT_IMPLEMENTED;
+      goto invalid_offset;
+   }
+
+   status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
+                                      offset,
+                                      selector);
+
+invalid_offset:
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_setPin --
+ * 
+ ***********************************************************************
+ */
+VMK_INLINE
+VMK_ReturnStatus
+gpio_setPin(gpio_Device_t *adapter, // IN
+            vmk_uint32 pin)         // IN
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   if (pin < 32) {
+      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
+                                         GPSET0,
+                                         1 << pin);
+   }
+   else {
+      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
+                                         GPSET1,
+                                         1 << (pin & GPIO_PIN_MASK));
+   }
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_clrPin --
+ * 
+ ***********************************************************************
+ */
+VMK_INLINE
+VMK_ReturnStatus
+gpio_clrPin(gpio_Device_t *adapter, // IN
+            vmk_uint32 pin)         // IN
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   if (pin < 32) {
+      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
+                                         GPCLR0,
+                                         1 << pin);
+   }
+   else {
+      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
+                                         GPCLR1,
+                                         1 << (pin & GPIO_PIN_MASK));
+   }
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_getPin --
+ * 
+ ***********************************************************************
+ */
+VMK_INLINE
+VMK_ReturnStatus
+gpio_levPin(gpio_Device_t *adapter, // IN
+            vmk_uint32 pin,         // IN
+            vmk_uint32 *ptr)        // OUT
+{
+   VMK_ReturnStatus status = VMK_OK;
+   vmk_uint32 tmp;
+
+   if (pin < 32) {
+      status = vmk_MappedResourceRead32(&adapter->mmioMappedAddr,
+                                        GPLEV0,
+                                        &tmp);
+   }
+   else {
+      status = vmk_MappedResourceRead32(&adapter->mmioMappedAddr,
+                                        GPLEV1,
+                                        &tmp);
+   }
+
+   /* Extract the value of the nth pin from the bitfield */
+   *ptr = (tmp & (1 << (pin & GPIO_PIN_MASK))) != 0;
+
+   return status;
+}
+
+/*
+ ***********************************************************************
  * gpio_changeIntrState --
  * 
  ***********************************************************************
@@ -169,7 +345,7 @@ gpio_ackIntr(void *clientData,            // IN
  */
 void
 gpio_intrHandler(void *clientData,            // IN
-                                  vmk_IntrCookie intrCookie)   // IN
+                 vmk_IntrCookie intrCookie)   // IN
 {
    VMK_ReturnStatus status = VMK_OK;
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
@@ -362,10 +538,3 @@ disable_intr_failed:
 change_intr_failed:
    return;
 }
-
-/*
- ***********************************************************************
- * gpio_ --
- * 
- ***********************************************************************
- */

@@ -36,64 +36,10 @@
 #define GPIO_PIN_HI 1
 #define GPIO_PIN_LO 0
 
-#define GPIO_READ_REG(_adapter, _reg, _ptr)                                    \
-   (vmk_MappedResourceRead32(&_adapter->mmioMappedAddr, _reg, _ptr))
-
-#define GPIO_WRITE_REG(_adapter, _reg, _val)                                   \
-   (vmk_MappedResourceWrite32(&_adapter->mmioMappedAddr, _reg, _val))
-
-#define GPIO_WRITE_PIN_REG(_adapter, _regPfx, _pin, _val)                      \
-   do {                                                                        \
-      if (_pin < 32) {  /* bank 0 */                                           \
-         GPIO_WRITE_REG(_adapter, _regPfx##0, _val);                           \
-      } else { /* bank1 */                                                     \
-         GPIO_WRITE_REG(_adapter, _regPfx##1, _val);                           \
-      }                                                                        \
-   } while(0)
-
-#define GPIO_SET_PIN(_adapter, _pin) GPIO_WRITE_PIN_REG(_adapter,              \
-                                                        GPSET,                 \
-                                                        _pin,                  \
-                                                        (1 << (_pin % 32)))
-
-#define GPIO_CLR_PIN(_adapter, _pin) GPIO_WRITE_PIN_REG(_adapter,              \
-                                                        GPCLR,                 \
-                                                        _pin,                  \
-                                                        (1 << (_pin % 32)))
-
-#define GPIO_GET_PIN(_adapter, _pin, _ptr)                                     \
-   do {                                                                        \
-      if (_pin < 32) {  /* bank 0 */                                           \
-         GPIO_READ_REG(_adapter, GPLEV0, _ptr);                                \
-      } else { /* bank1 */                                                     \
-         GPIO_READ_REG(_adapter, GPLEV1, _ptr);                                \
-      }                                                                        \
-      *_ptr = ((vmk_uint32)(*_ptr) & (1 << (_pin % 32))) >> _pin;              \
-   } while(0)
-
-#define GPIO_TOGGLE_PIN(_adapter, _pin)                                        \
-   do {                                                                        \
-      vmk_uint32 _val;                                                         \
-      GPIO_GET_PIN(_adapter, _pin, &_val);                                     \
-      if (_val == GPIO_PIN_HI) {                                               \
-         GPIO_CLR_PIN(_adapter, _pin);                                         \
-      }                                                                        \
-      else {                                                                   \
-         GPIO_SET_PIN(_adapter, _pin);                                         \
-      }                                                                        \
-   } while(0)
-
-#define GPIO_READ_BANK(_adapter, _bank, _ptr)                                  \
-   GPIO_READ_REG(_adapter, GPLEV##_bank, _ptr)
-
-#define GPIO_CLR_BANK(_adapter, _bank)                                         \
-   GPIO_WRITE_REG(_adapter, GPCLR##_bank, (vmk_uint32)~0)
-
-#define GPIO_SET_BANK(_adapter, _bank)                                         \
-   GPIO_WRITE_REG(_adapter, GPSET##_bank, (vmk_uint32)~0)
+#define GPIO_PIN_MASK 31
 
 /*
- * GPIO select register macros.
+ * GPIO pin function selectors
  */
 
 #define GPIO_SEL_IN  0b000
@@ -104,41 +50,13 @@
 #define GPIO_SEL_F3  0b111
 #define GPIO_SEL_F4  0b011
 #define GPIO_SEL_F5  0b010
-#define GPIO_FSELX(_pin, _val) (_val << ((_pin % 10) * 3))
-#define GPIO_SEL_PIN(_adapter, _pin, _val)                                     \
-   do {                                                                        \
-      vmk_uint32 _sel = GPIO_FSELX(_pin, _val);                                \
-      if (_pin < 10) {                                                         \
-         GPIO_WRITE_REG(_adapter, GPFSEL0, _sel);                              \
-      }                                                                        \
-      else if (_pin < 20) {                                                    \
-         GPIO_WRITE_REG(_adapter, GPFSEL1, _sel);                              \
-      }                                                                        \
-      else if (_pin < 30) {                                                    \
-         GPIO_WRITE_REG(_adapter, GPFSEL2, _sel);                              \
-      }                                                                        \
-      else if (_pin < 40) {                                                    \
-         GPIO_WRITE_REG(_adapter, GPFSEL3, _sel);                              \
-      }                                                                        \
-      else if (_pin < 50) {                                                    \
-         GPIO_WRITE_REG(_adapter, GPFSEL4, _sel);                              \
-      }                                                                        \
-      else if (_pin < 60) {                                                    \
-         GPIO_WRITE_REG(_adapter, GPFSEL5, _sel);                              \
-      }                                                                        \
-      else {                                                                   \
-         vmk_WarningMessage("%s: %s: invalid gpio pin: %d",                    \
-                            GPIO_DRIVER_NAME,                                  \
-                            __FUNCTION__,                                      \
-                            _pin);                                             \
-      }                                                                        \
-   } while(0)
 
 /*
  * Function selector registers which control the operation of the 54 gpio pins.
  * 
  * See p. 91.
  */
+
 #define GPFSEL0   0x00     /* gpio function select 0 */
 #define GPFSEL1   0x04     /* gpio function select 1 */
 #define GPFSEL2   0x08     /* gpio function select 2 */
@@ -190,6 +108,28 @@
 #define GPPUDCLK1 0x9c     /* gpio pin pull-up/down enable clock 1 */
 
 /***********************************************************************/
+
+VMK_INLINE VMK_ReturnStatus gpio_readReg(gpio_Device_t *adapter,
+                                         vmk_uint32 reg,
+                                         vmk_uint32 *ptr);
+
+VMK_INLINE VMK_ReturnStatus gpio_writeReg(gpio_Device_t *adapter,
+                                          vmk_uint32 reg,
+                                          vmk_uint32 val);
+
+VMK_INLINE VMK_ReturnStatus gpio_funcSelPin(gpio_Device_t *adapter,
+                                            vmk_uint32 pin,
+                                            vmk_uint32 func);
+
+VMK_INLINE VMK_ReturnStatus gpio_setPin(gpio_Device_t *adapter,
+                                        vmk_uint32 pin);
+
+VMK_INLINE VMK_ReturnStatus gpio_clrPin(gpio_Device_t *adapter,
+                                        vmk_uint32 pin);
+
+VMK_INLINE VMK_ReturnStatus gpio_levPin(gpio_Device_t *adapter,
+                                        vmk_uint32 pin,
+                                        vmk_uint32 *ptr);
 
 VMK_ReturnStatus gpio_changeIntrState(gpio_Device_t *adapter,
                                       vmk_uint64 curState,
