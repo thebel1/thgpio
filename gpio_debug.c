@@ -8,7 +8,14 @@
  ***********************************************************************
  * gpioDebug_worldFunc --
  * 
+ *    Entry point for driver debug function. It runs an infinite loop that runs
+ *    every x seconds. Can be used to run regular tests.
  * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 #define FANSHIM_FAN_PIN 18
@@ -50,6 +57,12 @@ gpioDebug_worldFunc(void *clientData) // IN: adapter
  * gpioDebug_dumpMMIOMem --
  *
  *    Dump the mapped mmio memory to log.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -99,6 +112,12 @@ gpioDebug_dumpMMIOMem(gpio_Device_t *adapter)
  * gpio_DumgRegisters --
  * 
  *    Dumps the gpio registers to log.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -116,6 +135,12 @@ gpioDebug_dumpRegisters(gpio_Device_t *adapter)
  * gpioDebug_dumpPins --
  * 
  *    Outputs the value of each gpio pin.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -149,6 +174,12 @@ gpioDebug_dumpPins(gpio_Device_t *adapter)
  * 
  *    Flips the value of all gpio pins, i.e. from 0 to 1 and vice versa.
  *    Some pins are initialized with 0 and some with 1 by the hardware.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -196,9 +227,17 @@ gpioDebug_testPins(gpio_Device_t *adapter)
  ***********************************************************************
  * gpioDebug_fanShimTurnOnLED --
  * 
- * References:
- *    - https://github.com/flobernd/raspi-apa102
- *    - https://github.com/pimoroni/apa102-python/blob/master/library/apa102/__init__.py
+ *    Turns on the LED on the FanShim accessory.   
+ * 
+ *    References:
+ *       - https://github.com/flobernd/raspi-apa102
+ *       - https://github.com/pimoroni/apa102-python/blob/master/library/apa102/__init__.py
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 #define RASPI_FANSHIM_PIN_SPI_SCLK  14
@@ -230,14 +269,8 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
                   RASPI_FANSHIM_PIN_SPI_SCLK,
                   RASPI_FANSHIM_PIN_SPI_MOSI);
 
-   //status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, GPIO_SEL_OUT);
-   //*(int *)((char *)adapter->mmioBase + GPFSEL1) = 0b1000000000000;
-
-   //status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, GPIO_SEL_OUT);
-   //*(int *)((char *)adapter->mmioBase + GPFSEL1) = 0b1000000000000;
-
-   *(int *)((char *)adapter->mmioBase + GPFSEL1) = 0b1001000000000000;
-
+   status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, GPIO_SEL_OUT);
+   status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, GPIO_SEL_OUT);
    status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
    status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
 
@@ -269,8 +302,8 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          if (bit) {
             logBuf[j] = '\x31'; /* "1" */
             logBuf[j + 1] = '\x20'; /* space */
-            //status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
-            *(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 15;
+            status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            //*(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 15;
             gpio_levPin(adapter, 15, &dataVal);
             vmk_LogMessage("%s: %s: out %d",
                            GPIO_DRIVER_NAME,
@@ -280,8 +313,8 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          else {
             logBuf[j] = '\x30'; /* "0" */
             logBuf[j + 1] = '\x20'; /* space */
-            //status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
-            *(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 15;
+            status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            //*(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 15;
             gpio_levPin(adapter, 15, &dataVal);
             vmk_LogMessage("%s: %s: out %d",
                            GPIO_DRIVER_NAME,
@@ -290,7 +323,7 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          }
 
          status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
-         *(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 14;
+         //*(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 14;
          gpio_levPin(adapter, 14, &clockVal);
          vmk_LogMessage("%s: %s: clk %d",
                         GPIO_DRIVER_NAME,
@@ -299,8 +332,8 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          status = vmk_WorldSleep(1);
          /* Shift left one bit so we can slice it like a salami */
          byte <<= 1;
-         //status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
-         *(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 14;
+         status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
+         //*(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 14;
          gpio_levPin(adapter, 14, &clockVal);
          vmk_LogMessage("%s: %s: clk %d",
                         GPIO_DRIVER_NAME,
@@ -319,13 +352,55 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
  ***********************************************************************
  * gpioDebug_fanShimFlashLED --
  * 
+ *    Flashes the LED on the FanShim accessory.   
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 VMK_ReturnStatus
 gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
+                          vmk_uint8 red,
+                          vmk_uint8 green,
+                          vmk_uint8 blue,
+                          vmk_uint8 brightness,
                           int intervalMs)
 {
    VMK_ReturnStatus status = VMK_OK;
+
+   
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpioDebug_fanShimRainbowLED --
+ * 
+ *    Pulses the LED in rainbow colors on the FanShim accessory.  
+ *    References:
+ *       - https://datasheetspdf.com/pdf-file/905213/GreeledElectronic/APA102/1 
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpioDebug_fanShimRainbowLED(gpio_Device_t *adapter)
+{
+   VMK_ReturnStatus status = VMK_OK;
+   vmk_uint8 buf[] = {0, 0, 0, 0,      /* SOF */
+                      ~0, ~0, ~0, ~0,  /* Payload */
+                      ~0, ~0, ~0, ~0}; /* EOF */
+   int bufLen = sizeof(buf);
+   int red, green, blue, brightness;
+   int i, j;
 
    return status;
 }

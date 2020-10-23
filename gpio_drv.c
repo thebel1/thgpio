@@ -17,6 +17,13 @@
  ***********************************************************************
  * gpio_readReg --
  * 
+ *    Reads a 4-byte word from a GPIO register.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_INLINE
@@ -36,6 +43,13 @@ gpio_readReg(gpio_Device_t *adapter,   // IN
  ***********************************************************************
  * gpio_writedReg --
  * 
+ *    Writes a 4-byte word into a GPIO register.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_INLINE
@@ -55,6 +69,13 @@ gpio_writeReg(gpio_Device_t *adapter,  // IN
  ***********************************************************************
  * gpio_funcSelPin --
  * 
+ *    Selects the function of a GPIO pin.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_INLINE
@@ -64,44 +85,48 @@ gpio_funcSelPin(gpio_Device_t *adapter,   // IN
                 vmk_uint32 func)          // IN
 {
    VMK_ReturnStatus status = VMK_OK;
-   vmk_uint32 origVal, offset, selector;
-
-   /*
-    * Place the bits to select the pin function at the correct location inside
-    * the gpio selector register.
-    */
-   selector = func << ((pin % 10) * 3);
+   vmk_uint32 origVal, newVal, reg, offset;
 
    if (pin < 10) {
-      offset = GPFSEL0;
+      reg = GPFSEL0;
    }
    else if (pin < 20) {
-      offset = GPFSEL1;
+      reg = GPFSEL1;
    }
    else if (pin < 30) {
-      offset = GPFSEL2;
+      reg = GPFSEL2;
    }
    else if (pin < 40) {
-      offset = GPFSEL3;
+      reg = GPFSEL3;
    }
    else if (pin < 50) {
-      offset = GPFSEL4;
+      reg = GPFSEL4;
    }
-   else if (pin < 60) {
-      offset = GPFSEL5;
+   else if (pin < 58) { /* RPi 4B only supports 0-57 */
+      reg = GPFSEL5;
    }
    else {
       status = VMK_NOT_IMPLEMENTED;
-      goto invalid_offset;
+      goto invalid_pin_number;
    }
 
-   status = gpio_levReg(adapter, offset, &origVal);
+   /*
+    * (1) Get the original value of the GPFSEL reg
+    * (2) Overwrite only the bits belonging to the pin with 1's
+    * (3) Flip the bits belonging to the pin
+    * (4) Write the desired bits using bitwise OR
+    */
+   offset = ((pin % 10) * 3);
+   status = gpio_readReg(adapter, reg, &origVal);
+   newVal = origVal | (0b111 << offset);
+   newVal ^= (0b111 << offset);
+   newVal |= (func << offset);
 
    status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
-                                      offset,
-                                      selector);
+                                      reg,
+                                      newVal);
 
-invalid_offset:
+invalid_pin_number:
    return status;
 }
 
@@ -109,6 +134,13 @@ invalid_offset:
  ***********************************************************************
  * gpio_setPin --
  * 
+ *    Set the value of a GPIO pin to 1.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_INLINE
@@ -136,6 +168,13 @@ gpio_setPin(gpio_Device_t *adapter, // IN
  ***********************************************************************
  * gpio_clrPin --
  * 
+ *    Clear the value of a GPIO pin.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_INLINE
@@ -163,6 +202,13 @@ gpio_clrPin(gpio_Device_t *adapter, // IN
  ***********************************************************************
  * gpio_getPin --
  * 
+ *    Outputs the value of a GPIO pin.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_INLINE
@@ -195,6 +241,14 @@ gpio_levPin(gpio_Device_t *adapter, // IN
  ***********************************************************************
  * gpio_changeIntrState --
  * 
+ *    Changes the interrupt state. UNUSED.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ * 
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -219,7 +273,14 @@ gpio_changeIntrState(gpio_Device_t *adapter, // IN
  ***********************************************************************
  * gpio_setupIntr --
  * 
+ *    Sets up interrupts. UNUSED.
  *    Reference: armtestacpivmkapi.c#ATDSetupInt
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -318,7 +379,14 @@ change_intr_failed:
  ***********************************************************************
  * gpio_ackIntr --
  * 
+ *    Acknowledges an interrupt. UNUSED.
  *    Reference: armtestacpivmkapi.c#ATDSetupInt
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -342,7 +410,14 @@ gpio_ackIntr(void *clientData,            // IN
  ***********************************************************************
  * gpio_intrHandler --
  * 
+ *    Handles an interrupt. UNUSED.
  *    Reference: armtestacpivmkapi.c#ATDSetupInt
+ * 
+ * Results:
+ *    None.
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 void
@@ -390,7 +465,14 @@ change_intr_failed:
  ***********************************************************************
  * gpio_waitIntr --
  * 
+ *    Waits for an interrupt to occur. UNUSED.
  *    Reference: armtestacpivmkapi.c#ATDSetupInt
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -453,9 +535,6 @@ gpio_waitIntr(gpio_Device_t *adapter)
       goto unexpected_intr_state;
    }
 
-   //DEBUG
-   return status;
-
    status = gpio_changeIntrState(adapter,
                                  GPIO_INT_SIGNAL,
                                  GPIO_INT_READY);
@@ -476,7 +555,14 @@ change_intr_failed:
  ***********************************************************************
  * gpio_destroyIntr --
  * 
+ *    Destroys an interrupt. UNUSED.
  *    Reference: armtestacpivmkapi.c#ATDSetupInt
+ * 
+ * Results:
+ *    None.
+ * 
+ * Side Effects:
+ *    None.
  ***********************************************************************
  */
 void

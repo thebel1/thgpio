@@ -2,14 +2,6 @@
  * gpio_drv.h --
  *
  *    Definition for gpio device layer interface
- * 
- * References:
- * 
- *    - https://github.com/RPi-Distro/raspi-gpio/blob/master/raspi-gpio.c
- * 
- * TODO:
- *    - rename to gpio_drv.h to better reflect this file's purpose
- *    - create a gpio_dpi.c/.h to control 
  */
 
 #ifndef GPIO_DRV_H
