@@ -51,6 +51,12 @@ vmk_WorldID gpioDebugWorldID = VMK_INVALID_WORLD_ID;
  * init_module --
  * 
  *    Entry point for driver.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 int init_module(void)
@@ -133,6 +139,13 @@ heap_create_fail:
  ***********************************************************************
  * cleanup_module --
  * 
+ *    Cleans up the module.
+ * 
+ * Results:
+ *    None.
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 void cleanup_module(void)
@@ -147,6 +160,12 @@ void cleanup_module(void)
  * gpio_attachDevice --
  * 
  *    Driver callback that attaches gpio logical device to the driver.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -367,6 +386,12 @@ device_already_exists:
  * 
  *    We don't do anything here since the gpio device doesn't have any
  *    child devices.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -386,7 +411,13 @@ gpio_scanDevice(vmk_Device device)
  ***********************************************************************
  * gpio_detachDevice --
  * 
+ *    Detaches the device from the driver.
  * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -417,6 +448,12 @@ gpio_detachDevice(vmk_Device device)
  * gpio_quiesceDevice --
  * 
  *    Do nothing.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -436,6 +473,13 @@ gpio_quiesceDevice(vmk_Device device)
  ***********************************************************************
  * gpio_startDevice --
  *
+ *    Start the GPIO device.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 VMK_ReturnStatus
@@ -451,7 +495,8 @@ gpio_startDevice(vmk_Device device)
                   device);
 
 //#ifdef GPIO_DEBUG
-   gpioDebug_fanShimTurnOnLED(adapter, 0, 255, 0, 1);
+   //gpioDebug_fanShimTurnOnLED(adapter, 0, 255, 0, 1);
+   gpioDebug_fanShimFlashLED(adapter, 0, 255, 0, 255, 500);
 //#endif /* GPIO_DEBUG */
 
    return status;
@@ -461,7 +506,13 @@ gpio_startDevice(vmk_Device device)
  ***********************************************************************
  * gpio_forgetDevice --
  * 
+ *    Do nothing.
  * 
+ * Results:
+ *    None.
+ * 
+ * Side Effects:
+ *    None
  ***********************************************************************
  */
 void

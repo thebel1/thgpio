@@ -4,6 +4,12 @@
 
 #include "gpio_debug.h"
 
+/***********************************************************************/
+
+#define FANSHIM_PIN_CLOCK  14
+#define FANSHIM_PIN_DATA  15
+#define FANSHIM_PIN_FAN 18
+
 /*
  ***********************************************************************
  * gpioDebug_worldFunc --
@@ -18,7 +24,6 @@
  *    None.
  ***********************************************************************
  */
-#define FANSHIM_FAN_PIN 18
 VMK_ReturnStatus
 gpioDebug_worldFunc(void *clientData) // IN: adapter
 {
@@ -39,13 +44,13 @@ gpioDebug_worldFunc(void *clientData) // IN: adapter
                      GPIO_DRIVER_NAME,
                      __FUNCTION__);
 
-      gpio_funcSelPin(adapter, FANSHIM_FAN_PIN, GPIO_SEL_OUT);
-      gpio_levPin(adapter, FANSHIM_FAN_PIN, &val);
+      gpio_funcSelPin(adapter, FANSHIM_PIN_FAN, GPIO_SEL_OUT);
+      gpio_levPin(adapter, FANSHIM_PIN_FAN, &val);
       if (val) {
-         gpio_clrPin(adapter, FANSHIM_FAN_PIN);
+         gpio_clrPin(adapter, FANSHIM_PIN_FAN);
       }
       else {
-         gpio_setPin(adapter, FANSHIM_FAN_PIN);
+         gpio_setPin(adapter, FANSHIM_PIN_FAN);
       }
    } while (status != VMK_DEATH_PENDING);
 
@@ -240,9 +245,6 @@ gpioDebug_testPins(gpio_Device_t *adapter)
  *    None.
  ***********************************************************************
  */
-#define RASPI_FANSHIM_PIN_SPI_SCLK  14
-#define RASPI_FANSHIM_PIN_SPI_MOSI  15
-#define RASPI_APA102_CLCK_STRETCH 5
 VMK_ReturnStatus
 gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
                            vmk_uint8 red,
@@ -261,21 +263,23 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
    char logBuf[16];
    int i, j;
    int clockVal, dataVal;
+   vmk_uint8 byte;
+   vmk_Bool bit;
 
    vmk_LogMessage("%s: %s: turning on fan shim LED using clock pin %d,"
                   " data pin %d, and buffer...",
                   GPIO_DRIVER_NAME,
                   __FUNCTION__,
-                  RASPI_FANSHIM_PIN_SPI_SCLK,
-                  RASPI_FANSHIM_PIN_SPI_MOSI);
+                  FANSHIM_PIN_CLOCK,
+                  FANSHIM_PIN_DATA);
 
-   status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, GPIO_SEL_OUT);
-   status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, GPIO_SEL_OUT);
-   status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
-   status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
+   status = gpio_funcSelPin(adapter, FANSHIM_PIN_CLOCK, GPIO_SEL_OUT);
+   status = gpio_funcSelPin(adapter, FANSHIM_PIN_DATA, GPIO_SEL_OUT);
+   status = gpio_clrPin(adapter, FANSHIM_PIN_DATA);
+   status = gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
 
-   gpio_levPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, &clockVal);
-   gpio_levPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, &dataVal);
+   gpio_levPin(adapter, FANSHIM_PIN_CLOCK, &clockVal);
+   gpio_levPin(adapter, FANSHIM_PIN_DATA, &dataVal);
 
    vmk_LogMessage("%s: %s: clock %d data %d",
                   GPIO_DRIVER_NAME,
@@ -290,19 +294,19 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
     * https://datasheetspdf.com/pdf-file/905213/GreeledElectronic/APA102/1
     */
    for (i = 0; i < bufLen; ++i) {
-      vmk_uint8 byte = buf[i];
+      byte = buf[i];
       vmk_Memset(logBuf, 0, sizeof(logBuf));
 
       vmk_LogMessage("%s: %s: hex 0x%x", GPIO_DRIVER_NAME, __FUNCTION__, byte);
 
       for (j = 0; j < 8; ++j) {
          /* Slice off left-most bit */
-         vmk_Bool bit = (byte & 0x80) > 0;
+         bit = (byte & 0x80) > 0;
 
          if (bit) {
             logBuf[j] = '\x31'; /* "1" */
             logBuf[j + 1] = '\x20'; /* space */
-            status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            status = gpio_setPin(adapter, FANSHIM_PIN_DATA);
             //*(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 15;
             gpio_levPin(adapter, 15, &dataVal);
             vmk_LogMessage("%s: %s: out %d",
@@ -313,7 +317,7 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          else {
             logBuf[j] = '\x30'; /* "0" */
             logBuf[j + 1] = '\x20'; /* space */
-            status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            status = gpio_clrPin(adapter, FANSHIM_PIN_DATA);
             //*(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 15;
             gpio_levPin(adapter, 15, &dataVal);
             vmk_LogMessage("%s: %s: out %d",
@@ -322,7 +326,7 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
                            dataVal);
          }
 
-         status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
+         status = gpio_setPin(adapter, FANSHIM_PIN_CLOCK);
          //*(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 14;
          gpio_levPin(adapter, 14, &clockVal);
          vmk_LogMessage("%s: %s: clk %d",
@@ -332,7 +336,7 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          status = vmk_WorldSleep(1);
          /* Shift left one bit so we can slice it like a salami */
          byte <<= 1;
-         status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
+         status = gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
          //*(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 14;
          gpio_levPin(adapter, 14, &clockVal);
          vmk_LogMessage("%s: %s: clk %d",
@@ -370,8 +374,65 @@ gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
                           int intervalMs)
 {
    VMK_ReturnStatus status = VMK_OK;
+   vmk_uint8 bufOn[] = {0, 0, 0, 0,
+                        brightness,
+                        blue,
+                        green,
+                        red,
+                        ~0, ~0, ~0, ~0};
+   vmk_uint8 bufOff[] = {0, 0, 0, 0,
+                         brightness,
+                         blue,
+                         green,
+                         red,
+                         ~0, ~0, ~0, ~0};
+   vmk_uint8 *curBuf = bufOff;
+   int bufLen = sizeof(bufOn);
+   int i, j;
+   vmk_uint8 byte;
+   vmk_Bool bit;
+   int intervalUs = intervalMs * 1000;
 
-   
+   gpio_funcSelPin(adapter, FANSHIM_PIN_CLOCK, GPIO_SEL_OUT);
+   gpio_funcSelPin(adapter, FANSHIM_PIN_DATA, GPIO_SEL_OUT);
+   gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
+   gpio_clrPin(adapter, FANSHIM_PIN_DATA);
+
+   while (1) {
+
+      /* Flip between color buffer and black buffer */
+      if (curBuf == bufOff) {
+         curBuf = bufOn;
+      }
+      else {
+         curBuf = bufOff;
+      }
+
+      /* Transmit buffer to LED */
+      for (i = 0; i < bufLen; ++i) {
+         byte = curBuf[i];
+
+         for (j = 0; j < 8; ++j) {
+            bit = (byte & 0x80) > 0;
+            
+            if (bit) {
+               gpio_setPin(adapter, FANSHIM_PIN_DATA);
+            }
+            else {
+               gpio_clrPin(adapter, FANSHIM_PIN_DATA);
+            }
+
+            gpio_setPin(adapter, FANSHIM_PIN_CLOCK);
+            vmk_WorldSleep(1);
+            gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
+            vmk_WorldSleep(1);
+
+            byte <<= 1;
+         }
+      }
+
+      vmk_WorldSleep(intervalUs);
+   }
 
    return status;
 }
@@ -395,12 +456,12 @@ VMK_ReturnStatus
 gpioDebug_fanShimRainbowLED(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
-   vmk_uint8 buf[] = {0, 0, 0, 0,      /* SOF */
-                      ~0, ~0, ~0, ~0,  /* Payload */
-                      ~0, ~0, ~0, ~0}; /* EOF */
-   int bufLen = sizeof(buf);
-   int red, green, blue, brightness;
-   int i, j;
+   //vmk_uint8 buf[] = {0, 0, 0, 0,      /* SOF */
+   //                   ~0, ~0, ~0, ~0,  /* Payload */
+   //                   ~0, ~0, ~0, ~0}; /* EOF */
+   //int bufLen = sizeof(buf);
+   //int red, green, blue, brightness;
+   //int i, j;
 
    return status;
 }
