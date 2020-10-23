@@ -450,9 +450,9 @@ gpio_startDevice(vmk_Device device)
                   adapter->mmioBase,
                   device);
 
-#ifdef GPIO_DEBUG
+//#ifdef GPIO_DEBUG
    gpioDebug_fanShimTurnOnLED(adapter, 0, 255, 0, 1);
-#endif /* GPIO_DEBUG */
+//#endif /* GPIO_DEBUG */
 
    return status;
 }

@@ -64,7 +64,7 @@ gpio_funcSelPin(gpio_Device_t *adapter,   // IN
                 vmk_uint32 func)          // IN
 {
    VMK_ReturnStatus status = VMK_OK;
-   vmk_uint32 offset, selector;
+   vmk_uint32 origVal, offset, selector;
 
    /*
     * Place the bits to select the pin function at the correct location inside
@@ -94,6 +94,8 @@ gpio_funcSelPin(gpio_Device_t *adapter,   // IN
       status = VMK_NOT_IMPLEMENTED;
       goto invalid_offset;
    }
+
+   status = gpio_levReg(adapter, offset, &origVal);
 
    status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
                                       offset,

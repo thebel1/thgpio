@@ -221,17 +221,41 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
    int bufLen = sizeof(buf);
    char logBuf[16];
    int i, j;
+   int clockVal, dataVal;
 
-   vmk_LogMessage("%s: %s: turning on fan shim LED using buffer",
+   vmk_LogMessage("%s: %s: turning on fan shim LED using clock pin %d,"
+                  " data pin %d, and buffer...",
                   GPIO_DRIVER_NAME,
-                  __FUNCTION__);
+                  __FUNCTION__,
+                  RASPI_FANSHIM_PIN_SPI_SCLK,
+                  RASPI_FANSHIM_PIN_SPI_MOSI);
 
-   status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, GPIO_SEL_OUT);
-   status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, GPIO_SEL_OUT);
+   //status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, GPIO_SEL_OUT);
+   //*(int *)((char *)adapter->mmioBase + GPFSEL1) = 0b1000000000000;
+
+   //status = gpio_funcSelPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, GPIO_SEL_OUT);
+   //*(int *)((char *)adapter->mmioBase + GPFSEL1) = 0b1000000000000;
+
+   *(int *)((char *)adapter->mmioBase + GPFSEL1) = 0b1001000000000000;
+
    status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
    status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
 
-   /* Set LED color */
+   gpio_levPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK, &clockVal);
+   gpio_levPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI, &dataVal);
+
+   vmk_LogMessage("%s: %s: clock %d data %d",
+                  GPIO_DRIVER_NAME,
+                  __FUNCTION__,
+                  clockVal,
+                  dataVal);
+
+   /*
+    * Set LED color (model APA102).
+    * 
+    * Transfer data format documented in:
+    * https://datasheetspdf.com/pdf-file/905213/GreeledElectronic/APA102/1
+    */
    for (i = 0; i < bufLen; ++i) {
       vmk_uint8 byte = buf[i];
       vmk_Memset(logBuf, 0, sizeof(logBuf));
@@ -245,21 +269,44 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          if (bit) {
             logBuf[j] = '\x31'; /* "1" */
             logBuf[j + 1] = '\x20'; /* space */
-            status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            //status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            *(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 15;
+            gpio_levPin(adapter, 15, &dataVal);
+            vmk_LogMessage("%s: %s: out %d",
+                           GPIO_DRIVER_NAME,
+                           __FUNCTION__,
+                           dataVal);
          }
          else {
             logBuf[j] = '\x30'; /* "0" */
             logBuf[j + 1] = '\x20'; /* space */
-            status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            //status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_MOSI);
+            *(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 15;
+            gpio_levPin(adapter, 15, &dataVal);
+            vmk_LogMessage("%s: %s: out %d",
+                           GPIO_DRIVER_NAME,
+                           __FUNCTION__,
+                           dataVal);
          }
 
          status = gpio_setPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
-         status = vmk_WorldSleep(100);
-         status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
-         status = vmk_WorldSleep(100);
-
+         *(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 14;
+         gpio_levPin(adapter, 14, &clockVal);
+         vmk_LogMessage("%s: %s: clk %d",
+                        GPIO_DRIVER_NAME,
+                        __FUNCTION__,
+                        clockVal);
+         status = vmk_WorldSleep(1);
          /* Shift left one bit so we can slice it like a salami */
          byte <<= 1;
+         //status = gpio_clrPin(adapter, RASPI_FANSHIM_PIN_SPI_SCLK);
+         *(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 14;
+         gpio_levPin(adapter, 14, &clockVal);
+         vmk_LogMessage("%s: %s: clk %d",
+                        GPIO_DRIVER_NAME,
+                        __FUNCTION__,
+                        clockVal);
+         status = vmk_WorldSleep(1);
       }
       logBuf[15] = '\0';
       vmk_LogMessage("%s: %s: bin %s", GPIO_DRIVER_NAME, __FUNCTION__, logBuf);
