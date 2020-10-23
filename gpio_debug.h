@@ -1,3 +1,9 @@
+/******************************************************************************\
+ * Native ESXi driver for the RPi's GPIO interface.
+ * 
+ * Tom Hebel, 2020
+\******************************************************************************/
+
 /*
  * gpio_debug.h --
  */
@@ -70,14 +76,21 @@ typedef struct Debug_VMKAcpiPnpDevice {
 
 /***********************************************************************/
 
-VMK_ReturnStatus gpioDebug_worldFunc(void *clientData);
+typedef struct gpio_DebugWorld_t {
+   char name[32];
+   vmk_WorldID worldID;
+   vmk_WorldStartFunc startFunc;
+} gpio_DebugWorld_t;
+
+/***********************************************************************/
+
+VMK_ReturnStatus gpioDebug_fanWorldFunc(void *clientData);
+VMK_ReturnStatus gpioDebug_ledWorldFunc(void *clientData);
 
 VMK_ReturnStatus gpioDebug_dumpMMIOMem(gpio_Device_t *adapter);
-
 VMK_ReturnStatus gpioDebug_dumpRegisters(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_testPins(gpio_Device_t *adapter);
-
 VMK_ReturnStatus gpioDebug_dumpPins(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
@@ -92,6 +105,9 @@ VMK_ReturnStatus gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
                                            vmk_uint8 blue,
                                            vmk_uint8 brightness,
                                            int intervalMs);
+
+VMK_ReturnStatus gpioDebug_fanShimGradientLED(gpio_Device_t *adapter,
+                                              int periodMs);
 
 /***********************************************************************/
 

@@ -1,3 +1,9 @@
+/******************************************************************************\
+ * Native ESXi driver for the RPi's GPIO interface.
+ * 
+ * Tom Hebel, 2020
+\******************************************************************************/
+
 /*
  * gpio_types.h --
  *
@@ -19,7 +25,7 @@ typedef struct gpio_Driver_t {
 extern gpio_Driver_t gpio_Driver;
 
 /*
- * The supported model types
+ * The supported model types. UNUSED.
  */
 typedef enum {
    GPIO_MODEL_2708,

@@ -6,8 +6,8 @@
 
 /*
  * TODO:
- * - set up logger
- * - set up locking / lock domain
+ * - Set up logger
+ * - Set up locking / lock domain
  */
 
 /*
@@ -43,8 +43,19 @@ vmk_DriverOps gpio_DriverOps = {
 
 /***********************************************************************/
 
-/* Used for dumption mmio mem and registers */
-vmk_WorldID gpioDebugWorldID = VMK_INVALID_WORLD_ID;
+/* World that perform various test/debug tasks */
+gpio_DebugWorld_t gpioDebugWorlds[] = {
+  {
+     .name = "gpio_fan_debug",
+     .worldID = VMK_INVALID_WORLD_ID,
+     .startFunc = gpioDebug_fanWorldFunc,
+   },
+   {
+      .name = "gpio_led_debug",
+      .worldID = VMK_INVALID_WORLD_ID,
+      .startFunc = gpioDebug_ledWorldFunc,
+   },
+};
 
 /*
  ***********************************************************************
@@ -195,21 +206,23 @@ gpio_attachDevice(vmk_Device device)
     * Debug message to determine whether we're attaching to the correct device.
     */
 #ifdef GPIO_DEBUG
-   vmk_DeviceID *debug_devID;
-   Debug_vmkBusType* debug_busType;
-   status = vmk_DeviceGetDeviceID(gpio_Driver.heapID, device, &debug_devID);
-   VMK_ASSERT(status == VMK_OK);
-   debug_busType = ((Debug_vmkBusType*)debug_devID->busType);
-   vmk_LogMessage("%s: %s: attaching device %p"
-                  " busType %s busAddr %s busIdent %s",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  device,
-                  &debug_busType->name.string,
-                  debug_devID->busAddress,
-                  debug_devID->busIdentifier);
-   status = vmk_DevicePutDeviceID(gpio_Driver.heapID, debug_devID);
-   VMK_ASSERT(status == VMK_OK);
+   {
+      vmk_DeviceID *debug_devID;
+      Debug_vmkBusType* debug_busType;
+      status = vmk_DeviceGetDeviceID(gpio_Driver.heapID, device, &debug_devID);
+      VMK_ASSERT(status == VMK_OK);
+      debug_busType = ((Debug_vmkBusType*)debug_devID->busType);
+      vmk_LogMessage("%s: %s: attaching device %p"
+                     " busType %s busAddr %s busIdent %s",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     device,
+                     &debug_busType->name.string,
+                     debug_devID->busAddress,
+                     debug_devID->busIdentifier);
+      status = vmk_DevicePutDeviceID(gpio_Driver.heapID, debug_devID);
+      VMK_ASSERT(status == VMK_OK);
+   }
 #endif /* GPIO_DEBUG */
 
    /*
@@ -243,13 +256,15 @@ gpio_attachDevice(vmk_Device device)
     * Debug info about io resources
     */
 #ifdef GPIO_DEBUG
-   Debug_VMKAcpiPnpDevice *debug_acpiPnpDev = ((Debug_VMKAcpiPnpDevice*)acpiDev);
-   vmk_LogMessage("%s: %s: device %p at addr %p has %d io resource(s)",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  device,
-                  debug_acpiPnpDev->iores->res->info.start.address.memory,
-                  debug_acpiPnpDev->numRes);
+   {
+      Debug_VMKAcpiPnpDevice *debug_acpiPnpDev = ((Debug_VMKAcpiPnpDevice*)acpiDev);
+      vmk_LogMessage("%s: %s: device %p at addr %p has %d io resource(s)",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     device,
+                     debug_acpiPnpDev->iores->res->info.start.address.memory,
+                     debug_acpiPnpDev->numRes);
+   }
 #endif /* GPIO_DEBUG */
 
    /*
@@ -318,55 +333,6 @@ gpio_attachDevice(vmk_Device device)
       goto device_attach_failed;
    }
 
-   /*
-    * Launch debug world for gpio adapter
-    */
-#ifdef GPIO_DEBUG
-   vmk_WorldProps debugWorldProps;
-   debugWorldProps.moduleID = vmk_ModuleCurrentID;
-   debugWorldProps.name = "gpio_debug_world";
-   debugWorldProps.startFunction = gpioDebug_worldFunc;
-   debugWorldProps.data = (void *)adapter;
-   debugWorldProps.schedClass = VMK_WORLD_SCHED_CLASS_DEFAULT;
-   debugWorldProps.heapID = gpio_Driver.heapID;
-   status = vmk_WorldCreate(&debugWorldProps, &gpioDebugWorldID);
-   if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: unable to create debug world: %s",
-                           GPIO_DRIVER_NAME,
-                           __FUNCTION__,
-                           vmk_StatusToString(status));
-      vmk_WorldDestroy(gpioDebugWorldID);
-      vmk_WorldWaitForDeath(gpioDebugWorldID);
-   }
-   
-   /* Dump mmio mem */
-   //gpioDebug_dumpMMIOMem(adapter);
-#endif /* GPIO_DEBUG */
-
-#ifdef GPIO_DEBUG
-   //gpioDebug_testPins(adapter);
-   //gpioDebug_turnOffEachPinAndWait(adapter, 5000);
-   //gpioDebug_turnOnEachPinAndWait(adapter, 5000);
-
-   /*vmk_LogMessage("%s: %s: attempting to turn off fan",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__);*/
-
-   //gpioDebug_fanShimToggle(adapter);
-
-   /* Select gpio pin 18 */
-   //*((int *)adapter->mmioBase + 1) = 0b001 << 24;
-   /* Clear gpio pin 18 */
-   //*((int *)adapter->mmioBase + 10) = 1 << 18;
-
-   //gpio_funcSelPin(adapter, 18, GPIO_SEL_OUT);
-   //gpio_clrPin(adapter, 18);
-
-   //gpioDebug_fanShimFlashLED(adapter, 500);
-   
-   //gpioDebug_fanShimTurnOnLED(adapter, 0, 255, 0, 1);
-#endif /* GPIO_DEBUG */
-
    return status;
 
 device_attach_failed:
@@ -431,12 +397,18 @@ gpio_detachDevice(vmk_Device device)
                   device);
 
    /*
-    * Destroy the debug world
+    * Destroy the debug worlds
     */
 #ifdef GPIO_DEBUG
-   if (gpioDebugWorldID != VMK_INVALID_WORLD_ID) {
-      vmk_WorldDestroy(gpioDebugWorldID);
-      vmk_WorldWaitForDeath(gpioDebugWorldID);
+   {
+      int i, n;
+      n = sizeof(gpioDebugWorlds) / sizeof(gpioDebugWorlds[0]);
+      for (i = 0; i < n; ++i) {
+         if (gpioDebugWorlds[i].worldID != VMK_INVALID_WORLD_ID) {
+            vmk_WorldDestroy(gpioDebugWorlds[i].worldID);
+            vmk_WorldWaitForDeath(gpioDebugWorlds[i].worldID);
+         }  
+      }
    }
 #endif /* GPIO_DEBUG */
 
@@ -494,10 +466,34 @@ gpio_startDevice(vmk_Device device)
                   adapter->mmioBase,
                   device);
 
-//#ifdef GPIO_DEBUG
-   //gpioDebug_fanShimTurnOnLED(adapter, 0, 255, 0, 1);
-   gpioDebug_fanShimFlashLED(adapter, 0, 255, 0, 255, 500);
-//#endif /* GPIO_DEBUG */
+   /*
+    * Launch debug worlds for gpio adapter
+    */
+#ifdef GPIO_DEBUG
+   {
+      vmk_WorldProps debugWorldProps;
+      debugWorldProps.moduleID = vmk_ModuleCurrentID;
+      debugWorldProps.data = (void *)adapter;
+      debugWorldProps.schedClass = VMK_WORLD_SCHED_CLASS_DEFAULT;
+      debugWorldProps.heapID = gpio_Driver.heapID;
+
+      int i, n;
+      n = sizeof(gpioDebugWorlds) / sizeof(gpioDebugWorlds[0]);
+      for (i = 0; i < n; ++i) {
+         debugWorldProps.name = gpioDebugWorlds[i].name;
+         debugWorldProps.startFunction = gpioDebugWorlds[i].startFunc;
+         status = vmk_WorldCreate(&debugWorldProps, &gpioDebugWorlds[i].worldID);
+
+         if (status != VMK_OK) {
+            vmk_WarningMessage("%s: %s: unable to create debug world \"%s\": %s",
+                                 GPIO_DRIVER_NAME,
+                                 __FUNCTION__,
+                                 gpioDebugWorlds[i].name,
+                                 vmk_StatusToString(status));
+         }
+      }
+   }
+#endif /* GPIO_DEBUG */
 
    return status;
 }

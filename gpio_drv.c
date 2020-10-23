@@ -1,9 +1,13 @@
+/******************************************************************************\
+ * Native ESXi driver for the RPi's GPIO interface.
+ * 
+ * Tom Hebel, 2020
+\******************************************************************************/
+
 /*
  * gpio_drv.c --
  *
- *    Implementation of gpio interface
- *
- *    Some ideas taken from /bora/modules/vmkernel/arm64/armtestacpivmkapi/armtestacpivmkapi.c
+ *    Implementation of gpio hardware interface.
  * 
  * TODO:
  *    - fix up interrupts to work as described here:

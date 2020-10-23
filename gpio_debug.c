@@ -1,3 +1,9 @@
+/******************************************************************************\
+ * Native ESXi driver for the RPi's GPIO interface.
+ * 
+ * Tom Hebel, 2020
+\******************************************************************************/
+
 /*
  * gpio_debug.c --
  */
@@ -12,10 +18,10 @@
 
 /*
  ***********************************************************************
- * gpioDebug_worldFunc --
+ * gpioDebug_fanworldFunc --
  * 
- *    Entry point for driver debug function. It runs an infinite loop that runs
- *    every x seconds. Can be used to run regular tests.
+ *    Entry point for debug world that turns the Pimoroni FanShim fan on
+ *    and off every X seconds.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -25,14 +31,11 @@
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpioDebug_worldFunc(void *clientData) // IN: adapter
+gpioDebug_fanWorldFunc(void *clientData) // IN: adapter
 {
    VMK_ReturnStatus status = VMK_OK;
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
    int val;
-
-   /* So the compiler stops complaining when it's not used */
-   adapter = adapter;
 
    do {
       status = vmk_WorldWait(VMK_EVENT_NONE,
@@ -53,6 +56,31 @@ gpioDebug_worldFunc(void *clientData) // IN: adapter
          gpio_setPin(adapter, FANSHIM_PIN_FAN);
       }
    } while (status != VMK_DEATH_PENDING);
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpioDebug_ledorldFunc --
+ * 
+ *    Entry point for debug world that transitions the Pimoroni FanShim
+ *    LED from red to green to blue to red.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpioDebug_ledWorldFunc(void *clientData) // IN: adapter
+{
+   VMK_ReturnStatus status = VMK_OK;
+   gpio_Device_t *adapter = (gpio_Device_t *)clientData;
+
+   gpioDebug_fanShimGradientLED(adapter, 2000);
 
    return status;
 }
@@ -103,11 +131,7 @@ gpioDebug_dumpMMIOMem(gpio_Device_t *adapter)
    buf[j] = '\0';
    vmk_LogMessage("%s: %s: %s", GPIO_DRIVER_NAME, __FUNCTION__, buf);
 
-   /*
-    * This PSODs the machine somehow, so for now I'll just live with the memory
-    * leak.
-    */
-   //vmk_HeapFree(gpio_Driver.heapID, buf);
+   vmk_HeapFree(gpio_Driver.heapID, buf);
 
    return status;
 }
@@ -306,8 +330,9 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          if (bit) {
             logBuf[j] = '\x31'; /* "1" */
             logBuf[j + 1] = '\x20'; /* space */
+            
             status = gpio_setPin(adapter, FANSHIM_PIN_DATA);
-            //*(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 15;
+            
             gpio_levPin(adapter, 15, &dataVal);
             vmk_LogMessage("%s: %s: out %d",
                            GPIO_DRIVER_NAME,
@@ -317,8 +342,9 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          else {
             logBuf[j] = '\x30'; /* "0" */
             logBuf[j + 1] = '\x20'; /* space */
+            
             status = gpio_clrPin(adapter, FANSHIM_PIN_DATA);
-            //*(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 15;
+            
             gpio_levPin(adapter, 15, &dataVal);
             vmk_LogMessage("%s: %s: out %d",
                            GPIO_DRIVER_NAME,
@@ -327,22 +353,22 @@ gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
          }
 
          status = gpio_setPin(adapter, FANSHIM_PIN_CLOCK);
-         //*(int *)((char *)adapter->mmioBase + GPSET0) = 1 << 14;
          gpio_levPin(adapter, 14, &clockVal);
          vmk_LogMessage("%s: %s: clk %d",
                         GPIO_DRIVER_NAME,
                         __FUNCTION__,
                         clockVal);
          status = vmk_WorldSleep(1);
-         /* Shift left one bit so we can slice it like a salami */
-         byte <<= 1;
          status = gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
-         //*(int *)((char *)adapter->mmioBase + GPCLR0) = 1 << 14;
          gpio_levPin(adapter, 14, &clockVal);
          vmk_LogMessage("%s: %s: clk %d",
                         GPIO_DRIVER_NAME,
                         __FUNCTION__,
                         clockVal);
+         
+         /* Shift left one bit so we can slice it like a salami */
+         byte <<= 1;
+         
          status = vmk_WorldSleep(1);
       }
       logBuf[15] = '\0';
@@ -439,33 +465,9 @@ gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
 
 /*
  ***********************************************************************
- * gpioDebug_fanShimPulseLED --
+ * gpioDebug_fanShimGradientLED --
  * 
- *    Pulses the LED in a particular color on the FanShim accessory.  
- * 
- * Results:
- *    VMK_OK   on success, error code otherwise
- * 
- * Side Effects:
- *    None
- ***********************************************************************
- */
-VMK_ReturnStatus
-gpioDebug_fanShimPulseLED(gpio_Device_t *adapter,
-                          vmk_uint8 red,
-                          vmk_uint8 green,
-                          vmk_uint8 blue,
-                          vmk_uint8 brightness,
-                          int intervalMs)
-{
-   
-}
-
-/*
- ***********************************************************************
- * gpioDebug_fanShimRainbowLED --
- * 
- *    Pulses the LED in rainbow colors on the FanShim accessory.  
+ *    Gradually transitions the LED from red to green to blue to red.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -475,15 +477,78 @@ gpioDebug_fanShimPulseLED(gpio_Device_t *adapter,
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpioDebug_fanShimRainbowLED(gpio_Device_t *adapter)
+gpioDebug_fanShimGradientLED(gpio_Device_t *adapter, int periodMs)
 {
    VMK_ReturnStatus status = VMK_OK;
-   //vmk_uint8 buf[] = {0, 0, 0, 0,      /* SOF */
-   //                   ~0, ~0, ~0, ~0,  /* Payload */
-   //                   ~0, ~0, ~0, ~0}; /* EOF */
-   //int bufLen = sizeof(buf);
-   //int red, green, blue, brightness;
-   //int i, j;
+   vmk_uint8 buf[] = {0, 0, 0, 0,
+                      255, 0, 0, 0,
+                      ~0, ~0, ~0, ~0};
+   int bufLen = sizeof(buf);
+   vmk_uint8 byte;
+   vmk_Bool bit;
+   int i, j, k;
+   vmk_uint8 rgb[] = {255, 0, 0};
+   int intervalUs = (periodMs * 1000) / 256;
 
-   return status;
+   gpio_funcSelPin(adapter, FANSHIM_PIN_DATA, GPIO_SEL_OUT);
+   gpio_funcSelPin(adapter, FANSHIM_PIN_CLOCK, GPIO_SEL_OUT);
+   gpio_clrPin(adapter, FANSHIM_PIN_DATA);
+   gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
+
+   k = 1;
+   while (1) {
+
+      for (i = 0; i < bufLen; ++i) {
+         byte = buf[i];
+
+         for (j = 0; j < 8; ++j) {
+            bit = (byte & 0x80) > 0;
+
+            if (bit) {
+               gpio_setPin(adapter, FANSHIM_PIN_DATA);
+            }
+            else {
+               gpio_clrPin(adapter, FANSHIM_PIN_DATA);
+            }
+
+            gpio_setPin(adapter, FANSHIM_PIN_CLOCK);
+            vmk_WorldSleep(1);
+            gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
+            vmk_WorldSleep(1);
+
+            byte <<= 1;
+         }
+      }
+
+      /*
+       * Move cursor one color to the right & wrap around
+       */
+      if (rgb[k] == 255) {
+         k = (k + 1) % 3;
+      }
+      
+      /*
+       * Transition the colors based on the position of cursor k
+       */
+      switch (k) {
+         case 0:
+            --rgb[2];
+            ++rgb[0];
+            break;
+         case 1:
+            --rgb[0];
+            ++rgb[1];
+            break;
+         case 2:
+            --rgb[1];
+            ++rgb[2];
+      }
+      buf[5] = rgb[0];
+      buf[6] = rgb[1];
+      buf[7] = rgb[2];
+
+      vmk_WorldSleep(intervalUs);
+   }
+
+   return status;  
 }
