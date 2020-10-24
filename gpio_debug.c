@@ -85,8 +85,54 @@ gpioDebug_ledWorldFunc(void *clientData) // IN: adapter
 {
    VMK_ReturnStatus status = VMK_OK;
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
+   int mode, btnPrev, btnCur;
 
-   gpioDebug_fanShimGradientLED(adapter, GPIO_DEBUG_LED_PERIOD_MS);
+   /* Switch mode between gradient, flashing, and off */
+   mode = 0;
+
+   /*
+    * Set up button
+    */
+   
+   gpio_funcSelPin(adapter, FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
+   gpio_setPull(adapter, FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
+
+   /* Avoid initial button jitter */
+   vmk_WorldSleep(1000 * 1000);
+
+   gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnPrev);
+   while (1) {
+
+      switch (mode) {
+         case 0:
+            gpioDebug_fanShimGradientLED(adapter, GPIO_DEBUG_LED_PERIOD_MS);
+            mode = (mode + 1) % 5;
+            break;
+         case 1:
+            gpioDebug_fanShimFlashLED(adapter, 255, 0, 0, 255, 500);
+            mode = (mode + 1) % 5;
+            break;
+         case 2:
+            gpioDebug_fanShimFlashLED(adapter, 0, 255, 0, 255, 500);
+            mode = (mode + 1) % 5;
+            break;
+         case 3:
+            gpioDebug_fanShimFlashLED(adapter, 0, 0, 255, 255, 500);
+            mode = (mode + 1) % 5;
+            break;
+         case 4:
+            gpioDebug_fanShimTurnOnLED(adapter, 0, 0, 0, 0);
+            vmk_WorldSleep(1000);
+            
+            gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnCur);
+            if (btnPrev < btnCur) { /* Button released */
+               mode = (mode + 1) % 5;
+            }
+            btnPrev = btnCur;
+
+            break;
+      }
+   }
 
    return status;
 }
@@ -111,6 +157,11 @@ gpioDebug_btnWorldFunc(void *clientData) // IN: adapter
    VMK_ReturnStatus status = VMK_OK;
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
    int btnPrev, btnCur;
+
+   /* So we can use the button to control the LED */
+   if (1) {
+      return status;
+   }
 
    gpio_funcSelPin(adapter, FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
    gpio_setPull(adapter, FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
@@ -465,13 +516,33 @@ gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
    vmk_uint8 byte;
    vmk_Bool bit;
    int intervalUs = intervalMs * 1000;
+   int btnPrev, btnCur;
 
+   /*
+    * Set up button
+    */
+   gpio_funcSelPin(adapter, FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
+   gpio_setPull(adapter, FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
+
+   /* Avoid button jitter */
+   vmk_WorldSleep(1000);
+
+   /*
+    * Set up data & clock pins
+    */
    gpio_funcSelPin(adapter, FANSHIM_PIN_CLOCK, GPIO_SEL_OUT);
    gpio_funcSelPin(adapter, FANSHIM_PIN_DATA, GPIO_SEL_OUT);
    gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
    gpio_clrPin(adapter, FANSHIM_PIN_DATA);
 
+   gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnPrev);
    while (1) {
+
+      gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnCur);
+      if (btnPrev < btnCur) { /* Button released */
+         goto button_pressed;
+      }
+      btnPrev = btnCur;
 
       /* Flip between color buffer and black buffer */
       if (curBuf == bufOff) {
@@ -507,6 +578,7 @@ gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
       vmk_WorldSleep(intervalUs);
    }
 
+button_pressed:
    return status;
 }
 
@@ -536,17 +608,44 @@ gpioDebug_fanShimGradientLED(gpio_Device_t *adapter, int periodMs)
    int i, j, k;
    vmk_uint8 rgb[] = {255, 0, 0};
    int intervalUs = (periodMs * 1000) / 256;
+   int btnPrev, btnCur;
+
+   /*
+    * Set up FanShim button
+    */
+
+   gpio_funcSelPin(adapter, FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
+   gpio_setPull(adapter, FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
+
+   /* Wait to avoid initial button pin jitter */
+   vmk_WorldSleep(1000);
+
+   /*
+    * Set up FanShim clock & data pins
+    */
 
    gpio_funcSelPin(adapter, FANSHIM_PIN_DATA, GPIO_SEL_OUT);
    gpio_funcSelPin(adapter, FANSHIM_PIN_CLOCK, GPIO_SEL_OUT);
    gpio_clrPin(adapter, FANSHIM_PIN_DATA);
    gpio_clrPin(adapter, FANSHIM_PIN_CLOCK);
 
+   /*
+    * Control the color gradient
+    */
+
    k = 1;
+   gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnPrev);
    while (1) {
 
       for (i = 0; i < bufLen; ++i) {
          byte = buf[i];
+
+         /* Register button press */
+         gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnCur);
+         if (btnPrev < btnCur) { /* Button released */
+            goto button_pressed;
+         }
+         btnPrev = btnCur;
 
          for (j = 0; j < 8; ++j) {
             bit = (byte & 0x80) > 0;
@@ -597,5 +696,6 @@ gpioDebug_fanShimGradientLED(gpio_Device_t *adapter, int periodMs)
       vmk_WorldSleep(intervalUs);
    }
 
-   return status;  
+button_pressed:
+   return status;
 }
