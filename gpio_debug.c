@@ -6,6 +6,8 @@
 
 /*
  * gpio_debug.c --
+ * 
+ *    Various debugging and testing functions.
  */
 
 #include "gpio_debug.h"
@@ -13,8 +15,12 @@
 /***********************************************************************/
 
 #define FANSHIM_PIN_CLOCK  14
-#define FANSHIM_PIN_DATA  15
-#define FANSHIM_PIN_FAN 18
+#define FANSHIM_PIN_DATA   15
+#define FANSHIM_PIN_BUTTON 17
+#define FANSHIM_PIN_FAN    18
+
+#define GPIO_DEBUG_FAN_MS        5000  /* Toggle fan every x seconds */
+#define GPIO_DEBUG_LED_PERIOD_MS 2000  /* 2sec period for pulse */
 
 /*
  ***********************************************************************
@@ -40,7 +46,7 @@ gpioDebug_fanWorldFunc(void *clientData) // IN: adapter
    do {
       status = vmk_WorldWait(VMK_EVENT_NONE,
                              VMK_LOCK_INVALID,
-                             5000,
+                             GPIO_DEBUG_FAN_MS,
                              __FUNCTION__);
 
       vmk_LogMessage("%s: %s: toggling fan",
@@ -62,7 +68,7 @@ gpioDebug_fanWorldFunc(void *clientData) // IN: adapter
 
 /*
  ***********************************************************************
- * gpioDebug_ledorldFunc --
+ * gpioDebug_ledWorldFunc --
  * 
  *    Entry point for debug world that transitions the Pimoroni FanShim
  *    LED from red to green to blue to red.
@@ -80,7 +86,48 @@ gpioDebug_ledWorldFunc(void *clientData) // IN: adapter
    VMK_ReturnStatus status = VMK_OK;
    gpio_Device_t *adapter = (gpio_Device_t *)clientData;
 
-   gpioDebug_fanShimGradientLED(adapter, 2000);
+   gpioDebug_fanShimGradientLED(adapter, GPIO_DEBUG_LED_PERIOD_MS);
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpioDebug_btnWorldFunc --
+ * 
+ *    Entry point for debug world that panics the system when the button
+ *    on the FanShim is pressed.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    Panics the system.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpioDebug_btnWorldFunc(void *clientData) // IN: adapter
+{
+   VMK_ReturnStatus status = VMK_OK;
+   gpio_Device_t *adapter = (gpio_Device_t *)clientData;
+   int btnPrev, btnCur;
+
+   gpio_funcSelPin(adapter, FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
+   gpio_setPull(adapter, FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
+
+   /* Wait to avoid initial button pin jitter */
+   vmk_WorldSleep(1000 * 1000);
+
+   /* Loop so we can respond to button presses */
+   gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnPrev);
+   while (1) {
+      gpio_levPin(adapter, FANSHIM_PIN_BUTTON, &btnCur);
+      if (btnPrev != btnCur) {
+         vmk_Panic("Panic button pressed!");
+      }
+      btnPrev = btnCur;
+      vmk_WorldSleep(1000);
+   }
 
    return status;
 }

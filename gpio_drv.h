@@ -101,9 +101,15 @@
 /*
  * Pull-up/down config.
  */
-#define GPPUD     0x94     /* gpio pin pull-up/down enable */
-#define GPPUDCLK0 0x98     /* gpio pin pull-up/down enable clock 0 */
-#define GPPUDCLK1 0x9c     /* gpio pin pull-up/down enable clock 1 */
+
+#define GPIO_PUP_PDN_CNTRL_REG0  0xe4
+#define GPIO_PUP_PDN_CNTRL_REG1  0xe8
+#define GPIO_PUP_PDN_CNTRL_REG2  0xec
+#define GPIO_PUP_PDN_CNTRL_REG3  0xf0
+
+#define GPIO_PUD_OFF 0b00
+#define GPIO_PUD_DN  0b10
+#define GPIO_PUD_UP  0b01
 
 /***********************************************************************/
 
@@ -128,6 +134,10 @@ VMK_INLINE VMK_ReturnStatus gpio_clrPin(gpio_Device_t *adapter,
 VMK_INLINE VMK_ReturnStatus gpio_levPin(gpio_Device_t *adapter,
                                         vmk_uint32 pin,
                                         vmk_uint32 *ptr);
+
+VMK_INLINE VMK_ReturnStatus gpio_setPull(gpio_Device_t *adapter,
+                                         vmk_uint32 pin,
+                                         vmk_uint8 pud);
 
 VMK_ReturnStatus gpio_changeIntrState(gpio_Device_t *adapter,
                                       vmk_uint64 curState,

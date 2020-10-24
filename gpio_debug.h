@@ -86,6 +86,7 @@ typedef struct gpio_DebugWorld_t {
 
 VMK_ReturnStatus gpioDebug_fanWorldFunc(void *clientData);
 VMK_ReturnStatus gpioDebug_ledWorldFunc(void *clientData);
+VMK_ReturnStatus gpioDebug_btnWorldFunc(void *clientData);
 
 VMK_ReturnStatus gpioDebug_dumpMMIOMem(gpio_Device_t *adapter);
 VMK_ReturnStatus gpioDebug_dumpRegisters(gpio_Device_t *adapter);

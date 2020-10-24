@@ -55,6 +55,11 @@ gpio_DebugWorld_t gpioDebugWorlds[] = {
       .worldID = VMK_INVALID_WORLD_ID,
       .startFunc = gpioDebug_ledWorldFunc,
    },
+   {
+      .name = "gpio_btn_debug",
+      .worldID = VMK_INVALID_WORLD_ID,
+      .startFunc = gpioDebug_btnWorldFunc,
+   }
 };
 
 /*
@@ -407,7 +412,7 @@ gpio_detachDevice(vmk_Device device)
          if (gpioDebugWorlds[i].worldID != VMK_INVALID_WORLD_ID) {
             vmk_WorldDestroy(gpioDebugWorlds[i].worldID);
             vmk_WorldWaitForDeath(gpioDebugWorlds[i].worldID);
-         }  
+         }
       }
    }
 #endif /* GPIO_DEBUG */

@@ -17,6 +17,19 @@
 #include "gpio.h"
 #include "gpio_drv.h"
 
+/***********************************************************************/
+
+vmk_uint32 gpioPinToSelReg[] = {
+   GPFSEL0, GPFSEL1, GPFSEL2, GPFSEL3, GPFSEL4, GPFSEL5
+};
+
+vmk_uint32 gpioPinToPudReg[] = {
+   GPIO_PUP_PDN_CNTRL_REG0,
+   GPIO_PUP_PDN_CNTRL_REG1,
+   GPIO_PUP_PDN_CNTRL_REG2,
+   GPIO_PUP_PDN_CNTRL_REG3,
+};
+
 /*
  ***********************************************************************
  * gpio_readReg --
@@ -89,25 +102,11 @@ gpio_funcSelPin(gpio_Device_t *adapter,   // IN
                 vmk_uint32 func)          // IN
 {
    VMK_ReturnStatus status = VMK_OK;
-   vmk_uint32 origVal, newVal, reg, offset;
+   vmk_uint32 origVal, newVal, reg, shift;
 
-   if (pin < 10) {
-      reg = GPFSEL0;
-   }
-   else if (pin < 20) {
-      reg = GPFSEL1;
-   }
-   else if (pin < 30) {
-      reg = GPFSEL2;
-   }
-   else if (pin < 40) {
-      reg = GPFSEL3;
-   }
-   else if (pin < 50) {
-      reg = GPFSEL4;
-   }
-   else if (pin < 58) { /* RPi 4B only supports 0-57 */
-      reg = GPFSEL5;
+   /* RPi 4B only supports 0-57 */
+   if (pin < 58) {
+      reg = gpioPinToSelReg[pin / 10];
    }
    else {
       status = VMK_NOT_IMPLEMENTED;
@@ -120,11 +119,11 @@ gpio_funcSelPin(gpio_Device_t *adapter,   // IN
     * (3) Flip the bits belonging to the pin
     * (4) Write the desired bits using bitwise OR
     */
-   offset = ((pin % 10) * 3);
+   shift = ((pin % 10) * 3);
    status = gpio_readReg(adapter, reg, &origVal);
-   newVal = origVal | (0b111 << offset);
-   newVal ^= (0b111 << offset);
-   newVal |= (func << offset);
+   newVal = origVal | (0b111 << shift);
+   newVal ^= (0b111 << shift);
+   newVal |= (func << shift);
 
    status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
                                       reg,
@@ -237,6 +236,50 @@ gpio_levPin(gpio_Device_t *adapter, // IN
 
    /* Extract the value of the nth pin from the bitfield */
    *ptr = (tmp & (1 << (pin & GPIO_PIN_MASK))) != 0;
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_setPull --
+ * 
+ *    Sets the pull-up/pull-down state for a specific gpio pin. This is
+ *    only valid for BCM2711.
+ * 
+ *    Reference:
+ *       - https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2711/rpi_DATA_2711_1p0.pdf
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_INLINE
+VMK_ReturnStatus
+gpio_setPull(gpio_Device_t *adapter,   // IN
+             vmk_uint32 pin,           // IN
+             vmk_uint8 pud)            // IN
+{
+   VMK_ReturnStatus status = VMK_OK;
+   vmk_uint32 reg, shift, oldPud, newPud;
+
+   shift = (pin % 16) * 2;
+   reg = gpioPinToPudReg[pin / 16];
+   gpio_readReg(adapter, reg, &oldPud);
+
+   /*
+    * (1) Set both bits belonging to this pin to 1
+    * (2) Flip the same two bits
+    * (3) Write the desired value
+    */
+   newPud = oldPud | (0b11 << shift);
+   newPud ^= (0b11 << shift);
+   newPud |= (pud << shift);
+
+   gpio_writeReg(adapter, reg, newPud);
 
    return status;
 }
