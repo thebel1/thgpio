@@ -139,22 +139,6 @@ VMK_INLINE VMK_ReturnStatus gpio_setPull(gpio_Device_t *adapter,
                                          vmk_uint32 pin,
                                          vmk_uint8 pud);
 
-VMK_ReturnStatus gpio_changeIntrState(gpio_Device_t *adapter,
-                                      vmk_uint64 curState,
-                                      vmk_uint64 newState);
-
-VMK_ReturnStatus gpio_setupIntr(gpio_Device_t *adapter);
-
-VMK_ReturnStatus gpio_ackIntr(void *clientData,
-                              vmk_IntrCookie intrCookie);
-
-void gpio_intrHandler(void *clientData,
-                      vmk_IntrCookie intrCookie);
-
-VMK_ReturnStatus gpio_waitIntr(gpio_Device_t *adapter);
-
-void gpio_destroyIntr(gpio_Device_t *adapter);
-
 /***********************************************************************/
 
 #endif /* GPIO_DRV_H */
