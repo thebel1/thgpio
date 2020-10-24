@@ -25,49 +25,6 @@ typedef struct gpio_Driver_t {
 extern gpio_Driver_t gpio_Driver;
 
 /*
- * The supported model types. UNUSED.
- */
-typedef enum {
-   GPIO_MODEL_2708,
-   GPIO_MODEL_2711,
-} gpio_Model_t;
-
-/*
- * Shamelessly stolen from /bora/modules/vmkernel/arm64/armtestacpivmkapi/armtestacpivmkapi.c
- * 
- * Adapter intState. These states record the driver
- * going through different phases of configuring interrupts
- * on the ATD device, triggering an int, and handling an interrupt.
- *
- * Flow is:
- *
- *    /------<  GPIO_INT_BUSY_DOWN <-----------------\
- *    |                                         |
- * GPIO_INT_NONE >-> GPIO_INT_BUSY_UP >---> GPIO_INT_READY >-------> GPIO_INT_SIGNAL >-------\
- *                            /                                          |
- *                            |                                          |
- *                            \--< GPIO_INT_HANDLE_END <-- GPIO_INT_HANDLE_START <-/
- */
-enum {
-   GPIO_INT_NONE,           /* No interrupts are configured, we are quescient and
-                             * ready to service requests via the VSI interface .*/
-   GPIO_INT_BUSY_UP,        /* We are in the process for configuring ints for the
-                             * device, as part of acting on a VSI command to test
-                             * interrupt delivery. */
-   GPIO_INT_BUSY_DOWN,      /* We are in the process of tearing down ints after
-                             * testing interrupt delivery. */
-   GPIO_INT_READY,          /* We are are ready to set the ACPI device to trigger
-                             * an interrupt and wait for its delivery. */
-   GPIO_INT_SIGNAL,         /* We have set the ACPI device to trigger an interrupt,
-                             * and are now waiting for its delivery. */
-   GPIO_INT_HANDLE_START,   /* We have been called by the acknowledgeInterrupt
-                             * callback and are now ready to handle the interrupt. */
-   GPIO_INT_HANDLE_END,     /* We have handled the interrupt and are now ready
-                             * to acknowledge the interrupt, wake up the waiter
-                             * in the VSI interface, and transition to GPIO_INT_READY */
-};
-
-/*
  * The gpio adapter. It should only ever be allocated once since there is only
  * one gpio interface on a Raspberry Pi.
  */
@@ -90,8 +47,6 @@ typedef struct gpio_Device_t {
    vmk_atomic64 intState;
    /* world ID to woke on int handler */
    vmk_WorldID wakeWorld;
-   /* device model */
-   gpio_Model_t model;
    /* mapped io address struct */
    vmk_MappedResourceAddress mmioMappedAddr;
    /* base addr for mmio */
@@ -100,6 +55,16 @@ typedef struct gpio_Device_t {
    vmk_ByteCount mmioLen;
 } gpio_Device_t;
 extern gpio_Device_t gpio_Device;
+
+/*
+ * Struct holding information about a world to launch while starting the GPIO
+ * device in gpio_startDevice().
+ */
+typedef struct gpio_StartUpWorld_t {
+   char name[32];
+   vmk_WorldID worldID;
+   vmk_WorldStartFunc startFunc;
+} gpio_StartUpWorld_t;
 
 /***********************************************************************/
 
