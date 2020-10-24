@@ -14,7 +14,6 @@
  *       https://www.raspberrypi.org/documentation/hardware/raspberrypi/gpio/README.md
  */
 
-#include "gpio.h"
 #include "gpio_drv.h"
 
 /***********************************************************************/

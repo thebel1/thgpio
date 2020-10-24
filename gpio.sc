@@ -56,6 +56,8 @@ module_def = {
    "source files"    : [ "gpio_os.c",
                          "gpio_drv.c",
                          "gpio_debug.c",
+                         "gpio_fanShim.c",
+                         "gpio_charDev.c",
                        ],
 }
 gpio_module = defineKernelModule(module_def)

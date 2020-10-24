@@ -13,19 +13,16 @@
 #ifndef GPIO_DRV_H
 #define GPIO_DRV_H
 
+#include "gpio.h"
 #include "gpio_types.h"
 
 /***********************************************************************/
 
 /*
- * GPIO register defs and macros for BCM2835 SoC.
- * 
- * TODO:
- *    - implement vmk status reporting
+ * GPIO register defs and macros for BCM2711 SoC.
  * 
  * References:
  * - https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2711/rpi_DATA_2711_1p0.pdf
- * - https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2835/BCM2835-ARM-Peripherals.pdf
  */
 
 /* For the RPi 4B */

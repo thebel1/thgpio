@@ -17,11 +17,6 @@
 
 /***********************************************************************/
 
-/* Run debug world every second */
-#define GPIO_DEBUG_WORLD_SLEEP_MS 5000
-
-/***********************************************************************/
-
 /*
  * Define debug data types for vmk opaque types so we don't have to do
  * any weird pointer arithmetic.
@@ -76,39 +71,11 @@ typedef struct Debug_VMKAcpiPnpDevice {
 
 /***********************************************************************/
 
-typedef struct gpio_DebugWorld_t {
-   char name[32];
-   vmk_WorldID worldID;
-   vmk_WorldStartFunc startFunc;
-} gpio_DebugWorld_t;
-
-/***********************************************************************/
-
-VMK_ReturnStatus gpioDebug_fanWorldFunc(void *clientData);
-VMK_ReturnStatus gpioDebug_ledWorldFunc(void *clientData);
-VMK_ReturnStatus gpioDebug_btnWorldFunc(void *clientData);
-
 VMK_ReturnStatus gpioDebug_dumpMMIOMem(gpio_Device_t *adapter);
 VMK_ReturnStatus gpioDebug_dumpRegisters(gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpioDebug_testPins(gpio_Device_t *adapter);
 VMK_ReturnStatus gpioDebug_dumpPins(gpio_Device_t *adapter);
-
-VMK_ReturnStatus gpioDebug_fanShimTurnOnLED(gpio_Device_t *adapter,
-                                            vmk_uint8 red,
-                                            vmk_uint8 green,
-                                            vmk_uint8 blue,
-                                            vmk_uint8 brightness);
-
-VMK_ReturnStatus gpioDebug_fanShimFlashLED(gpio_Device_t *adapter,
-                                           vmk_uint8 red,
-                                           vmk_uint8 green,
-                                           vmk_uint8 blue,
-                                           vmk_uint8 brightness,
-                                           int intervalMs);
-
-VMK_ReturnStatus gpioDebug_fanShimGradientLED(gpio_Device_t *adapter,
-                                              int periodMs);
 
 /***********************************************************************/
 

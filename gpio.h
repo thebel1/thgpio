@@ -17,9 +17,10 @@
 /***********************************************************************/
 
 /*
- * Debug options
+ * Compile-time options
  */
 
+/* Include debug header */
 #define GPIO_DEBUG
 #ifdef GPIO_DEBUG
 #include "gpio_debug.h"
@@ -37,16 +38,6 @@
 #define GPIO_MAX(a, b) (a > b ? a : b)
 
 #define GPIO_INT_MAX ((vmk_uint32)~0)
-
-/***********************************************************************/
-
-/*
- * GPIO device-specific constants.
- * 
- * See: https://github.com/RPi-Distro/raspi-gpio/blob/master/raspi-gpio.c
- */
-#define GPIO_PIN_MIN 0
-#define GPIO_PIN_MAX 53
 
 /***********************************************************************/
 
