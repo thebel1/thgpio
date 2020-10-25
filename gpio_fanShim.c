@@ -209,10 +209,10 @@ gpio_fanShimBtnWorldFunc(void *clientData) // IN: adapter
  */
 VMK_ReturnStatus
 gpio_fanShimSetLED(gpio_Device_t *adapter,
-                           vmk_uint8 red,
-                           vmk_uint8 green,
-                           vmk_uint8 blue,
-                           vmk_uint8 brightness)
+                   vmk_uint8 red,
+                   vmk_uint8 green,
+                   vmk_uint8 blue,
+                   vmk_uint8 brightness)
 {
    VMK_ReturnStatus status = VMK_OK;
    vmk_uint8 buf[] = {0, 0, 0, 0,                     /* SOF */
@@ -331,11 +331,11 @@ gpio_fanShimSetLED(gpio_Device_t *adapter,
  */
 VMK_ReturnStatus
 gpio_fanShimFlashLED(gpio_Device_t *adapter,
-                          vmk_uint8 red,
-                          vmk_uint8 green,
-                          vmk_uint8 blue,
-                          vmk_uint8 brightness,
-                          int intervalMs)
+                     vmk_uint8 red,
+                     vmk_uint8 green,
+                     vmk_uint8 blue,
+                     vmk_uint8 brightness,
+                     int intervalMs)
 {
    VMK_ReturnStatus status = VMK_OK;
    vmk_uint8 bufOn[] = {0, 0, 0, 0,
