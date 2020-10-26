@@ -1,4 +1,7 @@
+*.sh
+*.py
+*.sc
 bump*
-#build
+build
 .build
 .vscode
