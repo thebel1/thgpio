@@ -5,3 +5,4 @@ bump*
 build
 .build
 .vscode
+Makefile
