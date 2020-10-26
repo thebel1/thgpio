@@ -1,9 +1,6 @@
 /******************************************************************************\
  * Native ESXi driver for the RPi's GPIO interface.
  * 
- *    References:
- *       - /bora/modules/vmkernel/tests/vmkapitest/vmkapitest_ndd/chardev/ndd_chardev.c
- * 
  * Tom Hebel, 2020
 \******************************************************************************/
 
