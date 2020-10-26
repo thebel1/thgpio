@@ -2,7 +2,7 @@
 *.py
 *.sc
 bump*
-build
+#build
 .build
 .vscode
 Makefile
