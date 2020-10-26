@@ -209,29 +209,6 @@ gpio_attachDevice(vmk_Device device)
    }
 
    /*
-    * Debug message to determine whether we're attaching to the correct device.
-    */
-#ifdef GPIO_DEBUG
-   {
-      vmk_DeviceID *debug_devID;
-      Debug_vmkBusType* debug_busType;
-      status = vmk_DeviceGetDeviceID(gpio_Driver.heapID, device, &debug_devID);
-      VMK_ASSERT(status == VMK_OK);
-      debug_busType = ((Debug_vmkBusType*)debug_devID->busType);
-      vmk_LogMessage("%s: %s: attaching device %p"
-                     " busType %s busAddr %s busIdent %s",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     device,
-                     &debug_busType->name.string,
-                     debug_devID->busAddress,
-                     debug_devID->busIdentifier);
-      status = vmk_DevicePutDeviceID(gpio_Driver.heapID, debug_devID);
-      VMK_ASSERT(status == VMK_OK);
-   }
-#endif /* GPIO_DEBUG */
-
-   /*
     * Get vmk acpi dev
     */
    status = vmk_DeviceGetRegistrationData(device, (vmk_AddrCookie *)&acpiDev);
@@ -257,22 +234,6 @@ gpio_attachDevice(vmk_Device device)
                   __FUNCTION__,
                   acpiDev,
                   device);
-
-   /*
-    * Debug info about io resources
-    */
-#ifdef GPIO_DEBUG
-   {
-      Debug_VMKAcpiPnpDevice *debug_acpiPnpDev =
-                                 ((Debug_VMKAcpiPnpDevice*)acpiDev);
-      vmk_LogMessage("%s: %s: device %p at addr %p has %d io resource(s)",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     device,
-                     debug_acpiPnpDev->iores->res->info.start.address.memory,
-                     debug_acpiPnpDev->numRes);
-   }
-#endif /* GPIO_DEBUG */
 
    /*
     * Map io resources
