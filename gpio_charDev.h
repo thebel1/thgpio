@@ -28,9 +28,13 @@
 typedef VMK_ReturnStatus (*gpio_CharDevOpenCB_t)(vmk_CharDevFdAttr *attr);
 typedef VMK_ReturnStatus (*gpio_CharDevCloseCB_t)(vmk_CharDevFdAttr *attr);
 typedef VMK_ReturnStatus (*gpio_CharDevReadCB_t)(char *buffer,
-                                                 vmk_ByteCount nbytes);
+                                                 vmk_ByteCount nbytes,
+                                                 vmk_loff_t *ppos,
+                                                 vmk_ByteCountSigned *nread);
 typedef VMK_ReturnStatus (*gpio_CharDevWriteCB_t)(char *buffer,
-                                                  vmk_ByteCountSigned nwritten);
+                                                 vmk_ByteCount nbytes,
+                                                 vmk_loff_t *ppos,
+                                                 vmk_ByteCountSigned *nread);
 typedef struct gpio_CharDevCallbacks_t {
    gpio_CharDevOpenCB_t open;
    gpio_CharDevCloseCB_t close;
@@ -91,6 +95,13 @@ VMK_ReturnStatus gpio_charDevWrite(vmk_CharDevFdAttr *attr,
                                    vmk_ByteCount nbytes,
                                    vmk_loff_t *ppos,
                                    vmk_ByteCountSigned *nwritten);
+
+VMK_ReturnStatus gpio_charDevIO(vmk_CharDevFdAttr *attr,
+                                char *buffer,
+                                vmk_ByteCount nbytes,
+                                vmk_loff_t *ppos,
+                                vmk_ByteCountSigned *ndone,
+                                vmk_Bool isWrite);
 
 VMK_ReturnStatus gpio_charDevPoll(vmk_CharDevFdAttr *attr,
                                   vmk_PollContext pollCtx,

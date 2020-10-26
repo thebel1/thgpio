@@ -6,9 +6,7 @@
 
 /*
  * TODO:
- *    - Fix the PSOD while shutting down ESXi after uninstalling the driver
  *    - Set up logger
- *    - Set up locking / lock domain
  */
 
 /*
@@ -20,7 +18,6 @@
 #include "gpio.h"
 #include "gpio_types.h"
 #include "gpio_drv.h"
-#include "gpio_fanShim.h"
 #include "gpio_charDev.h"
 
 /***********************************************************************/
@@ -50,19 +47,13 @@ static vmk_DriverOps gpio_DriverOps = {
 };
 
 /*
- * Callbacks gluing the chardev driver to the FanShim functions
+ * Callbacks gluing the chardev driver to the GPIO driver "back-end".
  */
 static gpio_CharDevCallbacks_t gpio_CharDevCBs = {
-   .open = gpio_fanShimCharDevOpenCB,
-   .close = gpio_fanShimCharDevCloseCB,
-   .read = gpio_fanShimCharDevReadCB,
-   .write = gpio_fanShimCharDevWriteCB,
-};
-
-/***********************************************************************/
-
-/* World that perform various test/debug tasks */
-static gpio_StartUpWorld_t gpioStartUpWorlds[] = {
+   .open = gpio_mmioOpenCB,
+   .close = gpio_mmioCloseCB,
+   .read = gpio_mmioReadCB,
+   .write = gpio_mmioWriteCB,
 };
 
 /*
@@ -159,13 +150,9 @@ int init_module(void)
    }
 
    /*
-    * Init debug environment
+    * Init GPIO driver
     */
-#ifdef GPIO_DEBUG
-   {
-      gpioDebug_Init(&gpio_Driver);
-   }
-#endif /* GPIO_DEBUG */
+   gpio_drvInit(&gpio_Device);
 
    return VMK_OK;
 
@@ -237,29 +224,6 @@ gpio_attachDevice(vmk_Device device)
    }
 
    /*
-    * Debug message to determine whether we're attaching to the correct device.
-    */
-#ifdef GPIO_DEBUG
-   {
-      vmk_DeviceID *debug_devID;
-      Debug_vmkBusType* debug_busType;
-      status = vmk_DeviceGetDeviceID(gpio_Driver.heapID, device, &debug_devID);
-      VMK_ASSERT(status == VMK_OK);
-      debug_busType = ((Debug_vmkBusType*)debug_devID->busType);
-      vmk_LogMessage("%s: %s: attaching device %p"
-                     " busType %s busAddr %s busIdent %s",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     device,
-                     &debug_busType->name.string,
-                     debug_devID->busAddress,
-                     debug_devID->busIdentifier);
-      status = vmk_DevicePutDeviceID(gpio_Driver.heapID, debug_devID);
-      VMK_ASSERT(status == VMK_OK);
-   }
-#endif /* GPIO_DEBUG */
-
-   /*
     * Get vmk acpi dev
     */
    status = vmk_DeviceGetRegistrationData(device, (vmk_AddrCookie *)&acpiDev);
@@ -285,22 +249,6 @@ gpio_attachDevice(vmk_Device device)
                   __FUNCTION__,
                   acpiDev,
                   device);
-
-   /*
-    * Debug info about io resources
-    */
-#ifdef GPIO_DEBUG
-   {
-      Debug_VMKAcpiPnpDevice *debug_acpiPnpDev =
-                                 ((Debug_VMKAcpiPnpDevice*)acpiDev);
-      vmk_LogMessage("%s: %s: device %p at addr %p has %d io resource(s)",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     device,
-                     debug_acpiPnpDev->iores->res->info.start.address.memory,
-                     debug_acpiPnpDev->numRes);
-   }
-#endif /* GPIO_DEBUG */
 
    /*
     * Map io resources
@@ -433,23 +381,6 @@ VMK_ReturnStatus
 gpio_detachDevice(vmk_Device device)
 {
    VMK_ReturnStatus status = VMK_OK;
-   int i, n;
-
-   vmk_LogMessage("%s: %s: Detaching device %p",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  device);
-
-   /*
-    * Destroy the startup worlds
-    */
-   n = sizeof(gpioStartUpWorlds) / sizeof(gpioStartUpWorlds[0]);
-   for (i = 0; i < n; ++i) {
-      if (gpioStartUpWorlds[i].worldID != VMK_INVALID_WORLD_ID) {
-         vmk_WorldDestroy(gpioStartUpWorlds[i].worldID);
-         vmk_WorldWaitForDeath(gpioStartUpWorlds[i].worldID);
-      }
-   }
 
    return status;
 }
@@ -472,11 +403,6 @@ gpio_quiesceDevice(vmk_Device device)
 {
    VMK_ReturnStatus status = VMK_OK;
 
-   vmk_LogMessage("%s: %s: quiescing device %p",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  device);
-
    return status;
 }
 
@@ -497,42 +423,6 @@ VMK_ReturnStatus
 gpio_startDevice(vmk_Device device)
 {
    VMK_ReturnStatus status = VMK_OK;
-   gpio_Device_t *adapter = &gpio_Device;
-   vmk_WorldProps startUpWorldProps;
-   int i, n;
-
-   vmk_LogMessage("%s: %s: base addr %p for device %p",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  adapter->mmioBase,
-                  device);
-
-   /*
-    * Launch startup worlds for gpio adapter
-    */
-   startUpWorldProps.moduleID = vmk_ModuleCurrentID;
-   startUpWorldProps.data = (void *)adapter;
-   startUpWorldProps.schedClass = VMK_WORLD_SCHED_CLASS_DEFAULT;
-   startUpWorldProps.heapID = gpio_Driver.heapID;
-
-   n = sizeof(gpioStartUpWorlds) / sizeof(gpioStartUpWorlds[0]);
-   for (i = 0; i < n; ++i) {
-      startUpWorldProps.name = gpioStartUpWorlds[i].name;
-      startUpWorldProps.startFunction = gpioStartUpWorlds[i].startFunc;
-      status = vmk_WorldCreate(&startUpWorldProps,
-                               &gpioStartUpWorlds[i].worldID);
-
-      if (status != VMK_OK) {
-         vmk_WarningMessage("%s: %s: unable to create startup world \"%s\": %s",
-                              GPIO_DRIVER_NAME,
-                              __FUNCTION__,
-                              gpioStartUpWorlds[i].name,
-                              vmk_StatusToString(status));
-      }
-   }
-
-   /* Initialize the FanShim code */
-   gpio_fanShimInit(adapter);
 
    return status;
 }
@@ -553,11 +443,5 @@ gpio_startDevice(vmk_Device device)
 void
 gpio_forgetDevice(vmk_Device device)
 {
-
-   vmk_LogMessage("%s: %s: forgetting device %p",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  device);
-
    return;
 }

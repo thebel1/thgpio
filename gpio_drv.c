@@ -18,22 +18,13 @@
 
 /***********************************************************************/
 
-static vmk_uint32 gpioPinToSelReg[] = {
-   GPFSEL0, GPFSEL1, GPFSEL2, GPFSEL3, GPFSEL4, GPFSEL5
-};
-
-static vmk_uint32 gpioPinToPudReg[] = {
-   GPIO_PUP_PDN_CNTRL_REG0,
-   GPIO_PUP_PDN_CNTRL_REG1,
-   GPIO_PUP_PDN_CNTRL_REG2,
-   GPIO_PUP_PDN_CNTRL_REG3,
-};
+static gpio_Device_t *gpio_Device;
 
 /*
  ***********************************************************************
- * gpio_readReg --
+ * gpio_drvInit --
  * 
- *    Reads a 4-byte word from a GPIO register.
+ *    Initializes the GPIO driver.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -42,24 +33,21 @@ static vmk_uint32 gpioPinToPudReg[] = {
  *    None.
  ***********************************************************************
  */
-VMK_INLINE
 VMK_ReturnStatus
-gpio_readReg(gpio_Device_t *adapter,   // IN
-             vmk_uint32 reg,           // IN
-             vmk_uint32 *ptr)          // OUT
+gpio_drvInit(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
 
-   status = vmk_MappedResourceRead32(&adapter->mmioMappedAddr, reg, ptr);
+   gpio_Device = adapter;
 
    return status;
 }
 
 /*
  ***********************************************************************
- * gpio_writedReg --
+ * gpio_mmioDirectRead --
  * 
- *    Writes a 4-byte word into a GPIO register.
+ *    Read directly from the GPIO MMIO mapped area.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -70,73 +58,32 @@ gpio_readReg(gpio_Device_t *adapter,   // IN
  */
 VMK_INLINE
 VMK_ReturnStatus
-gpio_writeReg(gpio_Device_t *adapter,  // IN
-              vmk_uint32 reg,          // IN
-              vmk_uint32 val)          // IN
+gpio_mmioDirectRead(vmk_uint32 offset,
+                    vmk_uint32 *value)
 {
    VMK_ReturnStatus status = VMK_OK;
 
-   status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr, reg, val);
+#ifdef GPIO_DEBUG
+   {
+      vmk_LogMessage("%s: %s: reading from GPIO MMIO offset 0x%x",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     offset);
+   }
+#endif /* GPIO_DEBUG */
+
+   status = vmk_MappedResourceRead32(&gpio_Device->mmioMappedAddr,
+                                     offset,
+                                     value);
 
    return status;
 }
 
 /*
  ***********************************************************************
- * gpio_funcSelPin --
+ * gpio_mmioDirectWrite --
  * 
- *    Selects the function of a GPIO pin.
- * 
- * Results:
- *    VMK_OK   on success, error code otherwise
- * 
- * Side Effects:
- *    None.
- ***********************************************************************
- */
-VMK_INLINE
-VMK_ReturnStatus
-gpio_funcSelPin(gpio_Device_t *adapter,   // IN
-                vmk_uint32 pin,           // IN
-                vmk_uint32 func)          // IN
-{
-   VMK_ReturnStatus status = VMK_OK;
-   vmk_uint32 origVal, newVal, reg, shift;
-
-   /* RPi 4B only supports 0-57 */
-   if (pin < 58) {
-      reg = gpioPinToSelReg[pin / 10];
-   }
-   else {
-      status = VMK_NOT_IMPLEMENTED;
-      goto invalid_pin_number;
-   }
-
-   /*
-    * (1) Get the original value of the GPFSEL reg
-    * (2) Overwrite only the bits belonging to the pin with 1's
-    * (3) Flip the bits belonging to the pin
-    * (4) Write the desired bits using bitwise OR
-    */
-   shift = ((pin % 10) * 3);
-   status = gpio_readReg(adapter, reg, &origVal);
-   newVal = origVal | (0b111 << shift);
-   newVal ^= (0b111 << shift);
-   newVal |= (func << shift);
-
-   status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
-                                      reg,
-                                      newVal);
-
-invalid_pin_number:
-   return status;
-}
-
-/*
- ***********************************************************************
- * gpio_setPin --
- * 
- *    Set the value of a GPIO pin to 1.
+ *    Write directly to the GPIO MMIO mapped area.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -147,30 +94,34 @@ invalid_pin_number:
  */
 VMK_INLINE
 VMK_ReturnStatus
-gpio_setPin(gpio_Device_t *adapter, // IN
-            vmk_uint32 pin)         // IN
+gpio_mmioDirectWrite(vmk_uint32 offset,
+                     vmk_uint32 value)
 {
    VMK_ReturnStatus status = VMK_OK;
 
-   if (pin < 32) {
-      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
-                                         GPSET0,
-                                         1 << pin);
+#ifdef GPIO_DEBUG
+   {
+      vmk_LogMessage("%s: %s: writing value 0x%x to GPIO MMIO offset 0x%x",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     value,
+                     offset);
    }
-   else {
-      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
-                                         GPSET1,
-                                         1 << (pin & GPIO_PIN_MASK));
-   }
+#endif /* GPIO_DEBUG */
+
+   status = vmk_MappedResourceWrite32(&gpio_Device->mmioMappedAddr,
+                                      offset,
+                                      value);
 
    return status;
 }
 
 /*
  ***********************************************************************
- * gpio_clrPin --
+ * gpio_mmioOpenCB --
  * 
- *    Clear the value of a GPIO pin.
+ *    Callback used by char dev driver when the /dev/vmgfx32 file is
+ *    opened.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -179,32 +130,20 @@ gpio_setPin(gpio_Device_t *adapter, // IN
  *    None.
  ***********************************************************************
  */
-VMK_INLINE
 VMK_ReturnStatus
-gpio_clrPin(gpio_Device_t *adapter, // IN
-            vmk_uint32 pin)         // IN
+gpio_mmioOpenCB(vmk_CharDevFdAttr *attr)
 {
    VMK_ReturnStatus status = VMK_OK;
-
-   if (pin < 32) {
-      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
-                                         GPCLR0,
-                                         1 << pin);
-   }
-   else {
-      status = vmk_MappedResourceWrite32(&adapter->mmioMappedAddr,
-                                         GPCLR1,
-                                         1 << (pin & GPIO_PIN_MASK));
-   }
 
    return status;
 }
 
 /*
  ***********************************************************************
- * gpio_getPin --
+ * gpio_mmioCloseCB --
  * 
- *    Outputs the value of a GPIO pin.
+ *    Callback used by char dev driver when the /dev/vmgfx32 file is
+ *    closed.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -213,41 +152,20 @@ gpio_clrPin(gpio_Device_t *adapter, // IN
  *    None.
  ***********************************************************************
  */
-VMK_INLINE
 VMK_ReturnStatus
-gpio_levPin(gpio_Device_t *adapter, // IN
-            vmk_uint32 pin,         // IN
-            vmk_uint32 *ptr)        // OUT
+gpio_mmioCloseCB(vmk_CharDevFdAttr *attr)
 {
    VMK_ReturnStatus status = VMK_OK;
-   vmk_uint32 tmp;
-
-   if (pin < 32) {
-      status = vmk_MappedResourceRead32(&adapter->mmioMappedAddr,
-                                        GPLEV0,
-                                        &tmp);
-   }
-   else {
-      status = vmk_MappedResourceRead32(&adapter->mmioMappedAddr,
-                                        GPLEV1,
-                                        &tmp);
-   }
-
-   /* Extract the value of the nth pin from the bitfield */
-   *ptr = (tmp & (1 << (pin & GPIO_PIN_MASK))) != 0;
 
    return status;
 }
 
 /*
  ***********************************************************************
- * gpio_setPull --
+ * gpio_mmioReadCB --
  * 
- *    Sets the pull-up/pull-down state for a specific gpio pin. This is
- *    only valid for BCM2711.
- * 
- *    Reference:
- *       - https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2711/rpi_DATA_2711_1p0.pdf
+ *    Callback used by char dev driver when the /dev/vmgfx32 file is
+ *    read.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -256,29 +174,105 @@ gpio_levPin(gpio_Device_t *adapter, // IN
  *    None.
  ***********************************************************************
  */
-VMK_INLINE
 VMK_ReturnStatus
-gpio_setPull(gpio_Device_t *adapter,   // IN
-             vmk_uint32 pin,           // IN
-             vmk_uint8 pud)            // IN
+gpio_mmioReadCB(char *buffer,
+                vmk_ByteCount nbytes,
+                vmk_loff_t *ppos,
+                vmk_ByteCountSigned *nread)
 {
    VMK_ReturnStatus status = VMK_OK;
-   vmk_uint32 reg, shift, oldPud, newPud;
+   vmk_loff_t offset = *ppos;
+   vmk_uint32 value = 0;
 
-   shift = (pin % 16) * 2;
-   reg = gpioPinToPudReg[pin / 16];
-   gpio_readReg(adapter, reg, &oldPud);
+   if (offset > GPIO_MMIO_MAX_OFFSET) {
+      status = VMK_FAILURE;
+      vmk_WarningMessage("%s: %s: attempt to read past GPIO MMIO max offset"
+                         " 0x%x; offset attempted: 0x%x",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         GPIO_MMIO_MAX_OFFSET,
+                         offset);
+      goto read_past_mmio_max;
+   }
 
-   /*
-    * (1) Set both bits belonging to this pin to 1
-    * (2) Flip the same two bits
-    * (3) Write the desired value
-    */
-   newPud = oldPud | (0b11 << shift);
-   newPud ^= (0b11 << shift);
-   newPud |= (pud << shift);
+   status = gpio_mmioDirectRead(offset, &value);
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: failed to read from GPIO MMIO region: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         vmk_StatusToString(status));
+      *nread = 0;
+      goto mmio_read_failed;
+   }
 
-   gpio_writeReg(adapter, reg, newPud);
+   status = vmk_Sprintf(buffer, "%d", value);
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: unable to convert value to string: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__);
+      *nread = 0;
+      goto convert_failed;
+   }
 
+   /* Each read is the size of a register */
+   *nread = GPIO_REG_SIZE;
+
+convert_failed:
+mmio_read_failed:
+read_past_mmio_max:
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_mmioWrite --
+ * 
+ *    Callback used by char dev driver when the /dev/vmgfx32 file is
+ *    written to.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpio_mmioWriteCB(char *buffer,
+                 vmk_ByteCount nbytes,
+                 vmk_loff_t *ppos,
+                 vmk_ByteCountSigned *nwritten)
+{
+   VMK_ReturnStatus status = VMK_OK;
+   vmk_loff_t offset = *ppos;
+   long value;
+
+   if (offset > GPIO_MMIO_MAX_OFFSET) {
+      status = VMK_FAILURE;
+      vmk_WarningMessage("%s: %s: attempt to write past GPIO MMIO max offset"
+                         " 0x%x; offset attempted: 0x%x",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         GPIO_MMIO_MAX_OFFSET,
+                         offset);
+      goto write_past_mmio_max;
+   }
+
+   value = *(vmk_uint32*)buffer;
+   status = gpio_mmioDirectWrite(offset, (vmk_uint32)value);
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: failed to write to GPIO MMIO region: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         vmk_StatusToString(status));
+      *nwritten = 0;
+      goto mmio_write_failed;
+   }
+
+   /* Each write is the size of a register */
+   *nwritten = GPIO_REG_SIZE;
+
+mmio_write_failed:
+write_past_mmio_max:
    return status;
 }

@@ -2,7 +2,7 @@
 
 	
 
-	<id>thgpio_1.0-0.00010</id>
+	<id>thgpio_1.0-0.00001</id>
 
 	
 
@@ -40,9 +40,9 @@
         <componentNameSpec name="thgpio" uiString="Native GPIO Driver for vmkernel" />
 
         
-        <componentVersionSpec uiString="0.0.1" version="1.0-0.00010" />
+        <componentVersionSpec uiString="0.1.0" version="1.0-0.00001" />
 
-	<releaseDate>2020-10-26T05:59:46+00:00</releaseDate>
+	<releaseDate>2020-10-26T17:55:11+00:00</releaseDate>
 
 	
 
@@ -52,4 +52,4 @@
 
 	
 
-	<vibList><vibID>THX_bootbank_thgpio_0.0.1-1OEM.701.1.0.40650718</vibID></vibList></bulletin>
+	<vibList><vibID>THX_bootbank_thgpio_0.1.0-1OEM.701.1.0.40650718</vibID></vibList></bulletin>

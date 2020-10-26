@@ -198,7 +198,6 @@ gpio_charDevAssoc(vmk_AddrCookie charDevPriv,
 {
    VMK_ReturnStatus status = VMK_OK;
    vmk_Name charDevAlias;
-   int aliasLen;
 
    status = vmk_CharDeviceGetAlias(charDevHandle, &charDevAlias);
    if (status != VMK_OK) {
@@ -217,10 +216,6 @@ gpio_charDevAssoc(vmk_AddrCookie charDevPriv,
                      charDevAlias.string);
    }
 #endif /* GPIO_DEBUG */
-
-   aliasLen = vmk_Strnlen(charDevAlias.string, VMK_MISC_NAME_MAX);
-
-   // TODO: checks to determine whether the chardev is valid
 
    return VMK_OK;
 
@@ -450,7 +445,7 @@ gpio_charDevRead(vmk_CharDevFdAttr *attr,
                  vmk_loff_t *ppos,
                  vmk_ByteCountSigned *nread)
 {
-   return VMK_NOT_SUPPORTED;
+   return gpio_charDevIO(attr, buffer, nbytes, ppos, nread, VMK_FALSE);
 }
 
 /*
@@ -473,6 +468,30 @@ gpio_charDevWrite(vmk_CharDevFdAttr *attr,
                   vmk_loff_t *ppos,
                   vmk_ByteCountSigned *nwritten)
 {
+   return gpio_charDevIO(attr, buffer, nbytes, ppos, nwritten, VMK_TRUE);
+}
+
+/*
+ ***********************************************************************
+ * gpio_charDevIO --
+ * 
+ *    Read/write to file.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpio_charDevIO(vmk_CharDevFdAttr *attr,
+               char *buffer,
+               vmk_ByteCount nbytes,
+               vmk_loff_t *ppos,
+               vmk_ByteCountSigned *ndone,
+               vmk_Bool isWrite)
+{
    VMK_ReturnStatus status = VMK_OK;
    gpio_CharFileData_t *fileData;
    vmk_ByteCount curByte;
@@ -480,13 +499,13 @@ gpio_charDevWrite(vmk_CharDevFdAttr *attr,
    vmk_loff_t offset;
    char *localBuffer;
 
-   if (attr == NULL || ppos == NULL || nwritten == NULL) {
+   if (attr == NULL || ppos == NULL || ndone == NULL) {
       status = VMK_BAD_PARAM;
       vmk_WarningMessage("%s: %s: invalid write command received;"
                          " attr %p ppos %p ndone %p",
                          GPIO_DRIVER_NAME,
                          __FUNCTION__,
-                         attr, ppos, nwritten);
+                         attr, ppos, ndone);
       goto invalid_params;
    }
 
@@ -518,11 +537,34 @@ gpio_charDevWrite(vmk_CharDevFdAttr *attr,
     * Copy data from user space
     */
    for (curByte = 0; curByte < nbytes; ++curByte) {
-      status = vmk_CopyFromUser(
-         (vmk_VA)&localBuffer[(curByte + offset) % GPIO_CHARDEV_BUFFER_SIZE],
-         (vmk_VA)&buffer[curByte],
-         sizeof(char)
-      );
+      if (isWrite) { /* Write */
+         status = vmk_CopyFromUser(
+            (vmk_VA)&localBuffer[(curByte + offset) % GPIO_CHARDEV_BUFFER_SIZE],
+            (vmk_VA)&buffer[curByte],
+            sizeof(char)
+         );
+         if (status != VMK_OK) {
+            break;
+         }
+
+         /* Call write callback */
+         status = gpio_CharDevCBs->write(buffer, nbytes, ppos, ndone);
+      }
+      else { /* Read */
+
+         /* Call read callback */
+         status = gpio_CharDevCBs->write(localBuffer, nbytes, ppos, ndone);
+         if (status != VMK_OK) {
+            break;
+         }
+
+         status = vmk_CopyToUser(
+            (vmk_VA)&buffer[curByte],
+            (vmk_VA)&localBuffer[(curByte + offset) % GPIO_CHARDEV_BUFFER_SIZE],
+            sizeof(char)
+         );
+      }
+
       if (status != VMK_OK) {
          break;
       }
@@ -535,22 +577,19 @@ gpio_charDevWrite(vmk_CharDevFdAttr *attr,
 
    vmk_HeapFree(gpio_Driver->heapID, localBuffer);
 
-   *nwritten = doneBytes;
+   *ndone = doneBytes;
 
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: I/O failed to file %p: %s",
                          GPIO_DRIVER_NAME,
                          __FUNCTION__,
                          vmk_StatusToString(status));
-      goto write_failed;
+      goto io_failed;
    }
-
-   /* Call CB */
-   gpio_CharDevCBs->write(localBuffer, doneBytes);
 
    return VMK_OK;
 
-write_failed:
+io_failed:
 localBuffer_alloc_failed:
 invalid_params:
    return status;

@@ -16,17 +16,7 @@
 
 /***********************************************************************/
 
-/*
- * Compile-time options
- */
-
-/* Include debug header */
 #define GPIO_DEBUG
-#ifdef GPIO_DEBUG
-#include "gpio_debug.h"
-#endif /* GPIO_DEBUG */
-
-/***********************************************************************/
 
 #define GPIO_DRIVER_NAME "thgpio"
 
