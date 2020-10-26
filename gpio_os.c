@@ -6,8 +6,9 @@
 
 /*
  * TODO:
- * - Set up logger
- * - Set up locking / lock domain
+ *    - Fix the PSOD while shutting down ESXi after uninstalling the driver
+ *    - Set up logger
+ *    - Set up locking / lock domain
  */
 
 /*
@@ -20,11 +21,17 @@
 #include "gpio_types.h"
 #include "gpio_drv.h"
 #include "gpio_fanShim.h"
+#include "gpio_charDev.h"
 
 /***********************************************************************/
 
-gpio_Driver_t gpio_Driver;
-gpio_Device_t gpio_Device;
+static gpio_Driver_t gpio_Driver;
+static gpio_Device_t gpio_Device;
+
+/* For chardev */
+static gpio_CharDev_t gpio_CharDev;
+static vmk_BusType gpio_logicalBusType;
+static vmk_uint32 gpio_logicalPort = 0;
 
 VMK_ReturnStatus gpio_attachDevice(vmk_Device device);
 VMK_ReturnStatus gpio_scanDevice(vmk_Device device);
@@ -33,7 +40,7 @@ VMK_ReturnStatus gpio_quiesceDevice(vmk_Device device);
 VMK_ReturnStatus gpio_startDevice(vmk_Device device);
 void gpio_forgetDevice(vmk_Device device);
 
-vmk_DriverOps gpio_DriverOps = {
+static vmk_DriverOps gpio_DriverOps = {
    .attachDevice = gpio_attachDevice,
    .scanDevice = gpio_scanDevice,
    .detachDevice = gpio_detachDevice,
@@ -42,25 +49,20 @@ vmk_DriverOps gpio_DriverOps = {
    .forgetDevice = gpio_forgetDevice,
 };
 
+/*
+ * Callbacks gluing the chardev driver to the FanShim functions
+ */
+static gpio_CharDevCallbacks_t gpio_CharDevCBs = {
+   .open = gpio_fanShimCharDevOpenCB,
+   .close = gpio_fanShimCharDevCloseCB,
+   .read = gpio_fanShimCharDevReadCB,
+   .write = gpio_fanShimCharDevWriteCB,
+};
+
 /***********************************************************************/
 
 /* World that perform various test/debug tasks */
-gpio_StartUpWorld_t gpioStartUpWorlds[] = {
-  {
-     .name = "gpio_fanShim_fan",
-     .worldID = VMK_INVALID_WORLD_ID,
-     .startFunc = gpio_fanShimFanWorldFunc,
-   },
-   {
-      .name = "gpio_fanShim_led",
-      .worldID = VMK_INVALID_WORLD_ID,
-      .startFunc = gpio_fanShimLEDWorldFunc,
-   },
-   {
-      .name = "gpio_fanShim_btn",
-      .worldID = VMK_INVALID_WORLD_ID,
-      .startFunc = gpio_fanShimBtnWorldFunc,
-   }
+static gpio_StartUpWorld_t gpioStartUpWorlds[] = {
 };
 
 /*
@@ -83,6 +85,7 @@ int init_module(void)
    vmk_HeapCreateProps heapProps;
    vmk_DriverProps driverProps;
    //vmk_LogProperties logProps;
+   vmk_Name logicalBusName; /* For the chardev */
 
    status = vmk_NameInitialize(&gpio_Driver.driverName, GPIO_DRIVER_NAME);
    VMK_ASSERT(status == VMK_OK);
@@ -109,12 +112,26 @@ int init_module(void)
                          GPIO_DRIVER_NAME,
                          __FUNCTION__,
                          vmk_StatusToString(status));
-      goto heap_create_fail;
+      goto heap_create_failed;
    }
 
    vmk_ModuleSetHeapID(gpio_Driver.moduleID, heapID);
    VMK_ASSERT(vmk_ModuleGetHeapID(gpio_Driver.moduleID) == heapID);
    gpio_Driver.heapID = heapID;
+
+   /*
+    * Init logical bus
+    */
+
+   status = vmk_NameInitialize(&logicalBusName, VMK_LOGICAL_BUS_NAME);
+   status = vmk_BusTypeFind(&logicalBusName, &gpio_logicalBusType);
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: vmk_BusTypeFind for logical bus failed: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         vmk_StatusToString(status));
+      goto logical_bus_failed;
+   }
 
    /*
     * Register driver
@@ -138,15 +155,25 @@ int init_module(void)
                          GPIO_DRIVER_NAME,
                          __FUNCTION__,
                          vmk_StatusToString(status));
-      goto driver_register_fail;
+      goto driver_register_failed;
    }
+
+   /*
+    * Init debug environment
+    */
+#ifdef GPIO_DEBUG
+   {
+      gpioDebug_Init(&gpio_Driver);
+   }
+#endif /* GPIO_DEBUG */
 
    return VMK_OK;
 
-driver_register_fail:
+driver_register_failed:
    vmk_HeapDestroy(gpio_Driver.heapID);
 
-heap_create_fail:
+logical_bus_failed:
+heap_create_failed:
    vmk_WarningMessage("%s: %s failed", GPIO_DRIVER_NAME, __FUNCTION__);
 
    return status;
@@ -167,6 +194,7 @@ heap_create_fail:
  */
 void cleanup_module(void)
 {
+   vmk_BusTypeRelease(gpio_logicalBusType);
    vmk_HeapDestroy(gpio_Driver.heapID);
    vmk_ACPIUnmapIOResource(gpio_Driver.moduleID, gpio_Device.acpiDevice, 0);
    vmk_DriverUnregister(gpio_Driver.driverHandle);
@@ -209,6 +237,29 @@ gpio_attachDevice(vmk_Device device)
    }
 
    /*
+    * Debug message to determine whether we're attaching to the correct device.
+    */
+#ifdef GPIO_DEBUG
+   {
+      vmk_DeviceID *debug_devID;
+      Debug_vmkBusType* debug_busType;
+      status = vmk_DeviceGetDeviceID(gpio_Driver.heapID, device, &debug_devID);
+      VMK_ASSERT(status == VMK_OK);
+      debug_busType = ((Debug_vmkBusType*)debug_devID->busType);
+      vmk_LogMessage("%s: %s: attaching device %p"
+                     " busType %s busAddr %s busIdent %s",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     device,
+                     &debug_busType->name.string,
+                     debug_devID->busAddress,
+                     debug_devID->busIdentifier);
+      status = vmk_DevicePutDeviceID(gpio_Driver.heapID, debug_devID);
+      VMK_ASSERT(status == VMK_OK);
+   }
+#endif /* GPIO_DEBUG */
+
+   /*
     * Get vmk acpi dev
     */
    status = vmk_DeviceGetRegistrationData(device, (vmk_AddrCookie *)&acpiDev);
@@ -234,6 +285,22 @@ gpio_attachDevice(vmk_Device device)
                   __FUNCTION__,
                   acpiDev,
                   device);
+
+   /*
+    * Debug info about io resources
+    */
+#ifdef GPIO_DEBUG
+   {
+      Debug_VMKAcpiPnpDevice *debug_acpiPnpDev =
+                                 ((Debug_VMKAcpiPnpDevice*)acpiDev);
+      vmk_LogMessage("%s: %s: device %p at addr %p has %d io resource(s)",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     device,
+                     debug_acpiPnpDev->iores->res->info.start.address.memory,
+                     debug_acpiPnpDev->numRes);
+   }
+#endif /* GPIO_DEBUG */
 
    /*
     * Map io resources
@@ -321,8 +388,7 @@ device_already_exists:
  ***********************************************************************
  * gpio_scanDevice --
  * 
- *    We don't do anything here since the gpio device doesn't have any
- *    child devices.
+ *    Register char dev.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -335,6 +401,17 @@ VMK_ReturnStatus
 gpio_scanDevice(vmk_Device device)
 {
    VMK_ReturnStatus status = VMK_OK;
+   gpio_CharDev_t *charDev = &gpio_CharDev;
+
+   /*
+    * Register char device
+    */
+   status = gpio_charDevRegister(&gpio_Driver,
+                                 gpio_logicalBusType,
+                                 device,
+                                 charDev,
+                                 gpio_logicalPort,
+                                 &gpio_CharDevCBs);
 
    return status;
 }
@@ -453,6 +530,9 @@ gpio_startDevice(vmk_Device device)
                               vmk_StatusToString(status));
       }
    }
+
+   /* Initialize the FanShim code */
+   gpio_fanShimInit(adapter);
 
    return status;
 }

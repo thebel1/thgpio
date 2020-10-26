@@ -12,6 +12,33 @@
 
 #include "gpio_debug.h"
 
+/***********************************************************************/
+
+gpio_Driver_t *gpio_Driver = NULL;
+
+/*
+ ***********************************************************************
+ * gpioDebug_Init --
+ *
+ *    Initialize the debug "environment".
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpioDebug_Init(gpio_Driver_t *gpioDriver)
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   gpio_Driver = gpioDriver;
+
+   return status;
+}
+
 /*
  ***********************************************************************
  * gpioDebug_dumpMMIOMem --
@@ -41,7 +68,7 @@ gpioDebug_dumpMMIOMem(gpio_Device_t *adapter)
                   adapter->mmioLen);
 
    bufLen = 24;
-   buf = vmk_HeapAlloc(gpio_Driver.heapID, bufLen);
+   buf = vmk_HeapAlloc(gpio_Driver->heapID, bufLen);
    vmk_Memset(buf, 0, bufLen);
    for (i = 0, j = 0; i < adapter->mmioLen; ++i, j += 3) {
       if (j != 0 && j % 8 == 0) {
@@ -58,7 +85,7 @@ gpioDebug_dumpMMIOMem(gpio_Device_t *adapter)
    buf[j] = '\0';
    vmk_LogMessage("%s: %s: %s", GPIO_DRIVER_NAME, __FUNCTION__, buf);
 
-   vmk_HeapFree(gpio_Driver.heapID, buf);
+   vmk_HeapFree(gpio_Driver->heapID, buf);
 
    return status;
 }

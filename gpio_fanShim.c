@@ -21,20 +21,13 @@
 
 /***********************************************************************/
 
-#define GPIO_FANSHIM_PIN_CLOCK  14
-#define GPIO_FANSHIM_PIN_DATA   15
-#define GPIO_FANSHIM_PIN_BUTTON 17
-#define GPIO_FANSHIM_PIN_FAN    18
-
-#define GPIO_FANSHIM_FAN_MS        5000  /* Toggle fan every x seconds */
-#define GPIO_FANSHIM_LED_PERIOD_MS 2000  /* 2sec period for pulse */
+static gpio_Device_t *gpio_Device;
 
 /*
  ***********************************************************************
- * gpio_fanShimFanWorldFunc --
+ * gpio_fanShimInit --
  * 
- *    Entry point for debug world that turns the Pimoroni FanShim fan on
- *    and off every X seconds.
+ *    Initializes the data required for the FanShim.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -44,101 +37,174 @@
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpio_fanShimFanWorldFunc(void *clientData) // IN: adapter
+gpio_fanShimInit(gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
-   gpio_Device_t *adapter = (gpio_Device_t *)clientData;
-   int val;
 
-   do {
-      status = vmk_WorldWait(VMK_EVENT_NONE,
-                             VMK_LOCK_INVALID,
-                             GPIO_FANSHIM_FAN_MS,
-                             __FUNCTION__);
-
-      vmk_LogMessage("%s: %s: toggling fan",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__);
-
-      gpio_funcSelPin(adapter, GPIO_FANSHIM_PIN_FAN, GPIO_SEL_OUT);
-      gpio_levPin(adapter, GPIO_FANSHIM_PIN_FAN, &val);
-      if (val) {
-         gpio_clrPin(adapter, GPIO_FANSHIM_PIN_FAN);
-      }
-      else {
-         gpio_setPin(adapter, GPIO_FANSHIM_PIN_FAN);
-      }
-   } while (status != VMK_DEATH_PENDING);
-
-   return status;
-}
-
-/*
- ***********************************************************************
- * gpio_fanShimLEDWorldFunc --
- * 
- *    Entry point for debug world that transitions the Pimoroni FanShim
- *    LED from red to green to blue to red.
- * 
- * Results:
- *    VMK_OK   on success, error code otherwise
- * 
- * Side Effects:
- *    None.
- ***********************************************************************
- */
-VMK_ReturnStatus
-gpio_fanShimLEDWorldFunc(void *clientData) // IN: adapter
-{
-   VMK_ReturnStatus status = VMK_OK;
-   gpio_Device_t *adapter = (gpio_Device_t *)clientData;
-   int mode, btnPrev, btnCur;
-
-   /* Switch mode between gradient, flashing, and off */
-   mode = 0;
+   gpio_Device = adapter;
 
    /*
-    * Set up button
+    * For some reason, the initial pin state does not reflect the actual state
     */
+   gpio_fanShimFanToggle();
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_fanShimCharDevOpenCB --
+ * 
+ *    Callback for GPIO character device file open.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpio_fanShimCharDevOpenCB(vmk_CharDevFdAttr *attr)
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_fanShimCharDevCloseCB --
+ * 
+ *    Callback for GPIO character device file close.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpio_fanShimCharDevCloseCB(vmk_CharDevFdAttr *attr)
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_fanShimCharDevReadCB --
+ * 
+ *    Callback for GPIO character device file read.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpio_fanShimCharDevReadCB(char *buffer,
+                          vmk_ByteCount nbytes)
+{
+   VMK_ReturnStatus status = VMK_OK;
+
+   return status;
+}
+
+/*
+ ***********************************************************************
+ * gpio_fanShimCharDevWriteCB --
+ * 
+ *    Callback for GPIO character device file write.
+ * 
+ * Results:
+ *    VMK_OK   on success, error code otherwise
+ * 
+ * Side Effects:
+ *    None.
+ ***********************************************************************
+ */
+VMK_ReturnStatus
+gpio_fanShimCharDevWriteCB(char *buffer,
+                           vmk_ByteCountSigned nwritten)
+{
+   VMK_ReturnStatus status = VMK_OK;
+   char cmd[GPIO_FANSHIM_CMD_MAX_LEN];
+   int i, n;
+   long col;
+   vmk_uint8 red, green, blue;
+
+   n = nwritten % GPIO_FANSHIM_CMD_MAX_LEN;
    
-   gpio_funcSelPin(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
-   gpio_setPull(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
+   /* Make sure it's zero-terminated */
+   if (n < GPIO_FANSHIM_CMD_MAX_LEN) {
+      buffer[n - 1] = '\0';
+   }
+   else {
+      buffer[GPIO_FANSHIM_CMD_MAX_LEN - 1] = '\0';
+   }
 
-   /* Avoid initial button jitter */
-   vmk_WorldSleep(1000 * 1000);
+   /*
+    * Only use for debugging! Not safe!
+    */
+#ifdef GPIO_DEBUG
+   vmk_LogMessage("%s: %s: buffer: %s",
+                  GPIO_DRIVER_NAME,
+                  __FUNCTION__,
+                  buffer);
+#endif /* GPIO_DEBUG */
 
-   gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnPrev);
-   while (1) {
+   for (i = 0; i < n; ++i) {
+      cmd[i] = buffer[i];
+   }
 
-      switch (mode) {
-         case 0:
-            gpio_fanShimGradientLED(adapter, GPIO_FANSHIM_LED_PERIOD_MS);
-            mode = (mode + 1) % 5;
-            break;
-         case 1:
-            gpio_fanShimFlashLED(adapter, 255, 0, 0, 255, 500);
-            mode = (mode + 1) % 5;
-            break;
-         case 2:
-            gpio_fanShimFlashLED(adapter, 0, 255, 0, 255, 500);
-            mode = (mode + 1) % 5;
-            break;
-         case 3:
-            gpio_fanShimFlashLED(adapter, 0, 0, 255, 255, 500);
-            mode = (mode + 1) % 5;
-            break;
-         case 4:
-            gpio_fanShimSetLED(adapter, 0, 0, 0, 0);
-            vmk_WorldSleep(1000);
-            
-            gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnCur);
-            if (btnPrev < btnCur) { /* Button released */
-               mode = (mode + 1) % 5;
-            }
-            btnPrev = btnCur;
+   /*
+    * Only use for debugging! Not safe!
+    */
+#ifdef GPIO_DEBUG
+   vmk_LogMessage("%s: %s: cmd: %s",
+                  GPIO_DRIVER_NAME,
+                  __FUNCTION__,
+                  cmd);
+#endif /* GPIO_DEBUG */
 
-            break;
-      }
+   /*
+    * Parse commands
+    */
+   if (vmk_Strcmp(cmd, "gradient") == 0) {
+      gpio_fanShimGradientLED(5000, 2000);
+      gpio_fanShimSetLED(0, 0, 0, 255);
+   }
+   else if (vmk_Strcmp(cmd, "flash red") == 0) {
+      gpio_fanShimFlashLED(255, 0, 0, 255, 5000, 500);
+      gpio_fanShimSetLED(0, 0, 0, 255);
+   }
+   else if (vmk_Strcmp(cmd, "flash green") == 0) {
+      gpio_fanShimFlashLED(0, 255, 0, 255, 5000, 500);
+      gpio_fanShimSetLED(0, 0, 0, 255);
+   }
+   else if (vmk_Strcmp(cmd, "flash blue") == 0) {
+      gpio_fanShimFlashLED(0, 0, 255, 255, 5000, 500);
+      gpio_fanShimSetLED(0, 0, 0, 255);
+   }
+   else if (vmk_Strcmp(cmd, "fan") == 0) {
+      gpio_fanShimFanToggle();
+   }
+   else if (nwritten == 7) {
+      col = vmk_Strtol(cmd, NULL, 16);
+      red = (vmk_uint8)((col & (0xff << 16)) >> 16);
+      green = (vmk_uint8)((col & (0xff << 8)) >> 8);
+      blue = (vmk_uint8)(col & 0xff);
+      gpio_fanShimSetLED(red, green, blue, 255);
+   }
+   else {
+      vmk_WarningMessage("%s: %s: unsupported command",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__);
    }
 
    return status;
@@ -146,45 +212,31 @@ gpio_fanShimLEDWorldFunc(void *clientData) // IN: adapter
 
 /*
  ***********************************************************************
- * gpio_fanShimBtnWorldFunc --
+ * gpio_fanShimFanToggle --
  * 
- *    Entry point for debug world that panics the system when the button
- *    on the FanShim is pressed.
+ *    Turns the fan on or off.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
  * 
  * Side Effects:
- *    Panics the system.
+ *    None.
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpio_fanShimBtnWorldFunc(void *clientData) // IN: adapter
+gpio_fanShimFanToggle()
 {
    VMK_ReturnStatus status = VMK_OK;
-   gpio_Device_t *adapter = (gpio_Device_t *)clientData;
-   int btnPrev, btnCur;
+   gpio_Device_t *adapter = gpio_Device;
+   vmk_uint32 val;
 
-   /* So we can use the button to control the LED */
-   if (1) {
-      return status;
+   gpio_funcSelPin(adapter, GPIO_FANSHIM_PIN_FAN, GPIO_SEL_OUT);
+   gpio_levPin(adapter, GPIO_FANSHIM_PIN_FAN, &val);
+   if (val) {
+      gpio_clrPin(adapter, GPIO_FANSHIM_PIN_FAN);
    }
-
-   gpio_funcSelPin(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
-   gpio_setPull(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
-
-   /* Wait to avoid initial button pin jitter */
-   vmk_WorldSleep(1000 * 1000);
-
-   /* Loop so we can respond to button presses */
-   gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnPrev);
-   while (1) {
-      gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnCur);
-      if (btnPrev != btnCur) {
-         vmk_Panic("Panic button pressed!");
-      }
-      btnPrev = btnCur;
-      vmk_WorldSleep(1000);
+   else {
+      gpio_setPin(adapter, GPIO_FANSHIM_PIN_FAN);
    }
 
    return status;
@@ -208,13 +260,13 @@ gpio_fanShimBtnWorldFunc(void *clientData) // IN: adapter
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpio_fanShimSetLED(gpio_Device_t *adapter,
-                   vmk_uint8 red,
+gpio_fanShimSetLED(vmk_uint8 red,
                    vmk_uint8 green,
                    vmk_uint8 blue,
                    vmk_uint8 brightness)
 {
    VMK_ReturnStatus status = VMK_OK;
+   gpio_Device_t *adapter = gpio_Device;
    vmk_uint8 buf[] = {0, 0, 0, 0,                     /* SOF */
                       0b11100000 | (brightness * 31), /* brightness */
                       blue,
@@ -330,14 +382,15 @@ gpio_fanShimSetLED(gpio_Device_t *adapter,
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpio_fanShimFlashLED(gpio_Device_t *adapter,
-                     vmk_uint8 red,
+gpio_fanShimFlashLED(vmk_uint8 red,
                      vmk_uint8 green,
                      vmk_uint8 blue,
                      vmk_uint8 brightness,
+                     int durationMs,
                      int intervalMs)
 {
    VMK_ReturnStatus status = VMK_OK;
+   gpio_Device_t *adapter = gpio_Device;
    vmk_uint8 bufOn[] = {0, 0, 0, 0,
                         brightness,
                         blue,
@@ -355,14 +408,10 @@ gpio_fanShimFlashLED(gpio_Device_t *adapter,
    int i, j;
    vmk_uint8 byte;
    vmk_Bool bit;
+   int durationSec = durationMs / 1000;
    int intervalUs = intervalMs * 1000;
-   int btnPrev, btnCur;
-
-   /*
-    * Set up button
-    */
-   gpio_funcSelPin(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
-   gpio_setPull(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
+   vmk_TimerCycles monoCounterFreq = vmk_GetMonotonicCounterFrequency();
+   unsigned long startTime, curTime;
 
    /* Avoid button jitter */
    vmk_WorldSleep(1000);
@@ -375,14 +424,15 @@ gpio_fanShimFlashLED(gpio_Device_t *adapter,
    gpio_clrPin(adapter, GPIO_FANSHIM_PIN_CLOCK);
    gpio_clrPin(adapter, GPIO_FANSHIM_PIN_DATA);
 
-   gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnPrev);
+   startTime = vmk_TimerMonotonicCounter;
    while (1) {
-
-      gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnCur);
-      if (btnPrev < btnCur) { /* Button released */
-         goto button_pressed;
+      /*
+       * Check whether duration has elapsed
+       */
+      curTime = vmk_TimerMonotonicCounter;
+      if ((curTime - startTime) / monoCounterFreq >= durationSec) {
+         goto duration_elapsed;
       }
-      btnPrev = btnCur;
 
       /* Flip between color buffer and black buffer */
       if (curBuf == bufOff) {
@@ -418,7 +468,7 @@ gpio_fanShimFlashLED(gpio_Device_t *adapter,
       vmk_WorldSleep(intervalUs);
    }
 
-button_pressed:
+duration_elapsed:
    return status;
 }
 
@@ -436,9 +486,10 @@ button_pressed:
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpio_fanShimGradientLED(gpio_Device_t *adapter, int periodMs)
+gpio_fanShimGradientLED(int durationMs, int periodMs)
 {
    VMK_ReturnStatus status = VMK_OK;
+   gpio_Device_t *adapter = gpio_Device;
    vmk_uint8 buf[] = {0, 0, 0, 0,
                       255, 0, 0, 0,
                       ~0, ~0, ~0, ~0};
@@ -448,14 +499,9 @@ gpio_fanShimGradientLED(gpio_Device_t *adapter, int periodMs)
    int i, j, k;
    vmk_uint8 rgb[] = {255, 0, 0};
    int intervalUs = (periodMs * 1000) / 256;
-   int btnPrev, btnCur;
-
-   /*
-    * Set up FanShim button
-    */
-
-   gpio_funcSelPin(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_SEL_IN);
-   gpio_setPull(adapter, GPIO_FANSHIM_PIN_BUTTON, GPIO_PUD_UP);
+   int durationSec = durationMs / 1000;
+   vmk_TimerCycles monoCounterFreq = vmk_GetMonotonicCounterFrequency();
+   unsigned long startTime, curTime;
 
    /* Wait to avoid initial button pin jitter */
    vmk_WorldSleep(1000);
@@ -474,18 +520,18 @@ gpio_fanShimGradientLED(gpio_Device_t *adapter, int periodMs)
     */
 
    k = 1;
-   gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnPrev);
+   startTime = vmk_TimerMonotonicCounter;
    while (1) {
+      /*
+       * Check whether duration has elapsed
+       */
+      curTime = vmk_TimerMonotonicCounter;
+      if ((curTime - startTime) / monoCounterFreq >= durationSec) {
+         goto duration_elapsed;
+      }
 
       for (i = 0; i < bufLen; ++i) {
          byte = buf[i];
-
-         /* Register button press */
-         gpio_levPin(adapter, GPIO_FANSHIM_PIN_BUTTON, &btnCur);
-         if (btnPrev < btnCur) { /* Button released */
-            goto button_pressed;
-         }
-         btnPrev = btnCur;
 
          for (j = 0; j < 8; ++j) {
             bit = (byte & 0x80) > 0;
@@ -536,6 +582,6 @@ gpio_fanShimGradientLED(gpio_Device_t *adapter, int periodMs)
       vmk_WorldSleep(intervalUs);
    }
 
-button_pressed:
+duration_elapsed:
    return status;
 }

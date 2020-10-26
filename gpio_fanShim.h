@@ -17,26 +17,42 @@
 
 /***********************************************************************/
 
-VMK_ReturnStatus gpio_fanShimFanWorldFunc(void *clientData);
+#define GPIO_FANSHIM_PIN_CLOCK  14
+#define GPIO_FANSHIM_PIN_DATA   15
+#define GPIO_FANSHIM_PIN_BUTTON 17
+#define GPIO_FANSHIM_PIN_FAN    18
 
-VMK_ReturnStatus gpio_fanShimLEDWorldFunc(void *clientData);
+#define GPIO_FANSHIM_CMD_MAX_LEN 32
 
-VMK_ReturnStatus gpio_fanShimBtnWorldFunc(void *clientData);
+/***********************************************************************/
 
-VMK_ReturnStatus gpio_fanShimSetLED(gpio_Device_t *adapter,
-                                    vmk_uint8 red,
+VMK_ReturnStatus gpio_fanShimInit(gpio_Device_t *adapter);
+
+VMK_ReturnStatus gpio_fanShimCharDevOpenCB(vmk_CharDevFdAttr *attr);
+
+VMK_ReturnStatus gpio_fanShimCharDevCloseCB(vmk_CharDevFdAttr *attr);
+
+VMK_ReturnStatus gpio_fanShimCharDevReadCB(char *buffer,
+                                           vmk_ByteCount nbytes);
+
+VMK_ReturnStatus gpio_fanShimCharDevWriteCB(char *buffer,
+                                            vmk_ByteCountSigned nwritten);
+
+VMK_ReturnStatus gpio_fanShimFanToggle();
+
+VMK_ReturnStatus gpio_fanShimSetLED(vmk_uint8 red,
                                     vmk_uint8 green,
                                     vmk_uint8 blue,
                                     vmk_uint8 brightness);
 
-VMK_ReturnStatus gpio_fanShimFlashLED(gpio_Device_t *adapter,
-                                      vmk_uint8 red,
+VMK_ReturnStatus gpio_fanShimFlashLED(vmk_uint8 red,
                                       vmk_uint8 green,
                                       vmk_uint8 blue,
                                       vmk_uint8 brightness,
+                                      int durationMs,
                                       int intervalMs);
 
-VMK_ReturnStatus gpio_fanShimGradientLED(gpio_Device_t *adapter, int periodMs);
+VMK_ReturnStatus gpio_fanShimGradientLED(int durationMs, int periodMs);
 
 /***********************************************************************/
 

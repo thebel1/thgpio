@@ -22,7 +22,6 @@ typedef struct gpio_Driver_t {
    vmk_Driver driverHandle;
    vmk_IOResource resHandle;
 } gpio_Driver_t;
-extern gpio_Driver_t gpio_Driver;
 
 /*
  * The gpio adapter. It should only ever be allocated once since there is only
@@ -54,7 +53,6 @@ typedef struct gpio_Device_t {
    /* size of mmio space */
    vmk_ByteCount mmioLen;
 } gpio_Device_t;
-extern gpio_Device_t gpio_Device;
 
 /*
  * Struct holding information about a world to launch while starting the GPIO

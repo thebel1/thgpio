@@ -18,11 +18,11 @@
 
 /***********************************************************************/
 
-vmk_uint32 gpioPinToSelReg[] = {
+static vmk_uint32 gpioPinToSelReg[] = {
    GPFSEL0, GPFSEL1, GPFSEL2, GPFSEL3, GPFSEL4, GPFSEL5
 };
 
-vmk_uint32 gpioPinToPudReg[] = {
+static vmk_uint32 gpioPinToPudReg[] = {
    GPIO_PUP_PDN_CNTRL_REG0,
    GPIO_PUP_PDN_CNTRL_REG1,
    GPIO_PUP_PDN_CNTRL_REG2,
