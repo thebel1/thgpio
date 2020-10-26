@@ -1,0 +1,55 @@
+<bulletin>
+
+	
+
+	<id>thgpio_1.0-0.00010</id>
+
+	
+
+	<vendor>Tom Hebel</vendor>
+
+	
+
+	<summary>thgpio: Native GPIO Driver</summary>
+
+        
+	<severity>general</severity>
+
+        
+        <category>enhancement</category>
+
+        
+        <urgency>important</urgency>
+
+        
+	<releaseType>extension</releaseType>
+
+	
+
+	<description>Native GPIO Driver module for vmkernel</description>
+
+	
+
+	<kbUrl>http://kb.example.com/kb/example.html</kbUrl>
+
+	
+
+	<contact>thebel@vmware.com</contact>
+
+        
+        <componentNameSpec name="thgpio" uiString="Native GPIO Driver for vmkernel" />
+
+        
+        <componentVersionSpec uiString="0.0.1" version="1.0-0.00010" />
+
+	<releaseDate>2020-10-26T00:03:07+00:00</releaseDate>
+
+	
+
+	<platforms>
+		<softwarePlatform locale="" productLineID="embeddedEsx" version="7.0.1" />
+	</platforms>
+
+	
+
+	<vibList><vibID>THX_bootbank_thgpio_0.0.1-1OEM.701.1.0.40650718</vibID></vibList></bulletin>
