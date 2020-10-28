@@ -224,14 +224,22 @@ def main(argv):
     if args.command == 'fan':
         fanShim.toggleFan()
     elif args.command == 'set':
-        red = int(args.args[0])
-        green = int(args.args[1])
-        blue = int(args.args[2])
+        try:
+            red = int(args.args[0])
+            green = int(args.args[1])
+            blue = int(args.args[2])
+        except Exception as e:
+            print('Invalid color: {}'.format(str(e)))
+            exit(1)
         fanShim.setLED(red, green, blue)
     elif args.command == 'flash':
-        red = int(args.args[0])
-        green = int(args.args[1])
-        blue = int(args.args[2])
+        try:
+            red = int(args.args[0])
+            green = int(args.args[1])
+            blue = int(args.args[2])
+        except Exception as e:
+            print('Invalid color: {}'.format(str(e)))
+            exit(1)
         fanShim.flashLED(red, green, blue, 5, 500)
         fanShim.setLED(0, 0, 0)
     elif args.command == 'pulse':
