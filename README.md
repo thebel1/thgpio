@@ -12,6 +12,9 @@ Branch main contains:
 - a Python utility for interacting with the Pimoroni FanShim
 
 ### Videos
+
+These demos use the Pimoroni FanShim as an example. Any GPIO accessory should work analogously.
+
 Branch main: https://youtu.be/Mw8L1XAi8qA?t=170
 
 Branch fanShimButton: https://youtu.be/YjSxgKr7gZg
