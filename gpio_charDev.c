@@ -307,23 +307,9 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
    }
 
    /*
-    * Alloc I/O data
+    * We don't use this buffer, so set it to NULL
     */
-   fileData->data = vmk_HeapAlloc(gpio_Driver->heapID,
-                                  GPIO_CHARDEV_BUFFER_SIZE);
-   if (fileData->data == NULL) {
-      status = VMK_NO_MEMORY;
-      vmk_WarningMessage("%s: %s: failed to alloc I/O buffer: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
-      goto buffer_alloc_failed;
-   }
-
-   /*
-    * Zero out buffer
-    */
-   vmk_Memset(fileData->data, 0, GPIO_CHARDEV_BUFFER_SIZE);
+   fileData->data = NULL;
 
    /*
     * Prep file for I/O
@@ -336,11 +322,10 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: opened file; priv %p, data %p, lock %p",
+      vmk_LogMessage("%s: %s: opened file; priv %p lock %p",
                      GPIO_DRIVER_NAME,
                      __FUNCTION__,
                      fileData,
-                     fileData->data,
                      fileData->lock);
    }
 #endif /* GPIO_DEBUG */
@@ -349,9 +334,6 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
    gpio_CharDevCBs->open(attr);
 
    return VMK_OK;
-
-buffer_alloc_failed:
-   vmk_SpinlockDestroy(fileData->lock);
 
 lock_init_failed:
    vmk_HeapFree(gpio_Driver->heapID, fileData);
@@ -534,46 +516,37 @@ gpio_charDevIO(vmk_CharDevFdAttr *attr,
    fileData = (gpio_CharFileData_t *)attr->clientInstanceData.ptr;
    
    /*
-    * Copy data from user space
+    * Perform I/O and copy data to/from user space
     */
-   for (curByte = 0; curByte < nbytes; ++curByte) {
-      if (isWrite) { /* Write */
+   if (isWrite) { /* Write */
+      for (curByte = 0; curByte < nbytes; ++curByte) {
          status = vmk_CopyFromUser(
-            (vmk_VA)&localBuffer[(curByte + offset) % GPIO_CHARDEV_BUFFER_SIZE],
-            (vmk_VA)&buffer[curByte],
+            (vmk_VA)&localBuffer[curByte % GPIO_CHARDEV_BUFFER_SIZE],
+            (vmk_VA)&buffer[curByte % GPIO_CHARDEV_BUFFER_SIZE],
             sizeof(char)
          );
+
          if (status != VMK_OK) {
             break;
          }
-
-         /* Call write callback */
-         status = gpio_CharDevCBs->write(buffer, nbytes, ppos, ndone);
+         ++doneBytes;
       }
-      else { /* Read */
-
-         /* Call read callback */
-         status = gpio_CharDevCBs->write(localBuffer, nbytes, ppos, ndone);
-         if (status != VMK_OK) {
-            break;
-         }
-
-         status = vmk_CopyToUser(
-            (vmk_VA)&buffer[curByte],
-            (vmk_VA)&localBuffer[(curByte + offset) % GPIO_CHARDEV_BUFFER_SIZE],
-            sizeof(char)
-         );
-      }
-
-      if (status != VMK_OK) {
-         break;
-      }
-      ++doneBytes;
+      status = gpio_CharDevCBs->write(localBuffer, doneBytes, ppos, &doneBytes);
    }
-
-   vmk_SpinlockLock(fileData->lock);
-   vmk_Memcpy(fileData->data, localBuffer, GPIO_CHARDEV_BUFFER_SIZE);
-   vmk_SpinlockUnlock(fileData->lock);
+   else { /* Read */
+      status = gpio_CharDevCBs->read(localBuffer, nbytes, ppos, &doneBytes);
+      for (curByte = 0; curByte < doneBytes; ++curByte) {
+         status = vmk_CopyToUser(
+            (vmk_VA)&buffer[curByte % GPIO_CHARDEV_BUFFER_SIZE],
+            (vmk_VA)&localBuffer[curByte % GPIO_CHARDEV_BUFFER_SIZE],
+            sizeof(char)
+         );
+         if (status != VMK_OK) {
+            break;
+         }
+      }
+      doneBytes = curByte + 1;
+   }
 
    vmk_HeapFree(gpio_Driver->heapID, localBuffer);
 
@@ -735,6 +708,5 @@ gpio_charDevFileDestroy(gpio_CharFileData_t *fileData)
 #endif /* GPIO_DEBUG */
 
    vmk_SpinlockDestroy(fileData->lock);
-   vmk_HeapFree(gpio_Driver->heapID, fileData->data);
    vmk_HeapFree(gpio_Driver->heapID, fileData);
 }

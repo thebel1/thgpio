@@ -22,7 +22,7 @@
  * As documented in:
  * https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2711/rpi_DATA_2711_1p0.pdf
  */
-#define GPIO_MMIO_MAX_OFFSET 0xf4
+#define GPIO_MMIO_SIZE 0xf4
 
 /* Each register is 4 bytes in size */
 #define GPIO_REG_SIZE 4

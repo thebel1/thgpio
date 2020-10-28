@@ -184,17 +184,20 @@ gpio_mmioReadCB(char *buffer,
    vmk_loff_t offset = *ppos;
    vmk_uint32 value = 0;
 
-   if (offset > GPIO_MMIO_MAX_OFFSET) {
+   if (offset > GPIO_MMIO_SIZE - GPIO_REG_SIZE) {
       status = VMK_FAILURE;
       vmk_WarningMessage("%s: %s: attempt to read past GPIO MMIO max offset"
                          " 0x%x; offset attempted: 0x%x",
                          GPIO_DRIVER_NAME,
                          __FUNCTION__,
-                         GPIO_MMIO_MAX_OFFSET,
+                         GPIO_MMIO_SIZE,
                          offset);
       goto read_past_mmio_max;
    }
 
+   /*
+    * Read from GPIO MMIO space
+    */
    status = gpio_mmioDirectRead(offset, &value);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: failed to read from GPIO MMIO region: %s",
@@ -205,19 +208,24 @@ gpio_mmioReadCB(char *buffer,
       goto mmio_read_failed;
    }
 
-   status = vmk_Sprintf(buffer, "%d", value);
-   if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: unable to convert value to string: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__);
-      *nread = 0;
-      goto convert_failed;
+   /* Write register value to UW buffer */
+   *(vmk_uint32 *)buffer = value;
+
+#ifdef GPIO_DEBUG
+   {
+      vmk_LogMessage("%s: %s: read 0x%x from offset 0x%x",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     value,
+                     offset);
    }
+#endif /* GPIO_DEBUG */
 
    /* Each read is the size of a register */
    *nread = GPIO_REG_SIZE;
 
-convert_failed:
+   return VMK_OK;
+
 mmio_read_failed:
 read_past_mmio_max:
    return status;
@@ -247,13 +255,13 @@ gpio_mmioWriteCB(char *buffer,
    vmk_loff_t offset = *ppos;
    long value;
 
-   if (offset > GPIO_MMIO_MAX_OFFSET) {
+   if (offset + nbytes > GPIO_MMIO_SIZE) {
       status = VMK_FAILURE;
       vmk_WarningMessage("%s: %s: attempt to write past GPIO MMIO max offset"
                          " 0x%x; offset attempted: 0x%x",
                          GPIO_DRIVER_NAME,
                          __FUNCTION__,
-                         GPIO_MMIO_MAX_OFFSET,
+                         GPIO_MMIO_SIZE,
                          offset);
       goto write_past_mmio_max;
    }
