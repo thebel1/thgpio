@@ -11,6 +11,6 @@ Branch main contains the base GPIO pin driver and logic to control the Pimoroni 
 
 Video: https://youtu.be/YjSxgKr7gZg
 
-Branch charDev allows controlling the FanShim fan using commands redirected into a character device.
+Branch charDev allows controlling the FanShim using commands redirected into a character device.
 
 Video: https://youtu.be/Ri1py3AzIsU?t=107
