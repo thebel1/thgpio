@@ -11,7 +11,17 @@ Branch main contains:
 - a Python utility for interacting with the GPIO interface
 - a Python utility for interacting with the Pimoroni FanShim
 
-### Videos:
+### Videos
+Branch main: 
+
 Branch fanShimButton: https://youtu.be/YjSxgKr7gZg
 
 Branch charDev: https://youtu.be/Ri1py3AzIsU?t=107
+
+### Installation
+
+To install the driver, download the VIB file in the build directory and copy it to your RPi.
+
+Install it as described here: https://kb.vmware.com/s/article/2008939
+
+I would recommend download the Python library in ./pyUtil/pyLib/ as well so you don't have to worry about bit twiddling and calculating addresses yourself.
