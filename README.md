@@ -12,7 +12,7 @@ Branch main contains:
 - a Python utility for interacting with the Pimoroni FanShim
 
 ### Videos
-Branch main: 
+Branch main: https://youtu.be/Mw8L1XAi8qA
 
 Branch fanShimButton: https://youtu.be/YjSxgKr7gZg
 
