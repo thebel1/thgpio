@@ -531,7 +531,9 @@ gpio_charDevIO(vmk_CharDevFdAttr *attr,
          }
          ++doneBytes;
       }
+      vmk_SpinlockLock(fileData->lock);
       status = gpio_CharDevCBs->write(localBuffer, doneBytes, ppos, &doneBytes);
+      vmk_SpinlockUnlock(fileData->lock);
    }
    else { /* Read */
       status = gpio_CharDevCBs->read(localBuffer, nbytes, ppos, &doneBytes);
