@@ -273,7 +273,7 @@ def main(argv):
                 '\nset\t<pin>'
                 '\nclear\t<pin>'
                 '\nlevel\t<pin>'
-                '\npoll\t<pin> <timeout>'
+                '\npoll\t<pin>'
                 '\ngetpull\t<pin>'
                 '\nsetpull\t<pin> <pull>')
     parser = argparse.ArgumentParser(prog='gpio',

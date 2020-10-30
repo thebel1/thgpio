@@ -200,6 +200,7 @@ heap_create_failed:
  */
 void cleanup_module(void)
 {
+   vmk_LogUnregister(gpio_Driver.logger);
    vmk_BusTypeRelease(gpio_logicalBusType);
    vmk_HeapDestroy(gpio_Driver.heapID);
    vmk_ACPIUnmapIOResource(gpio_Driver.moduleID, gpio_Device.acpiDevice, 0);
