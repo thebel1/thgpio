@@ -300,7 +300,7 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
    status = vmk_SpinlockCreate(&lockProps, &fileData->lock);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: failed to create spinlock: %s",
-         	             GPIO_DRIVER_NAME,
+                         GPIO_DRIVER_NAME,
                          __FUNCTION__,
                          vmk_StatusToString(status));
       goto lock_init_failed;

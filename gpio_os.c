@@ -256,7 +256,7 @@ gpio_attachDevice(vmk_Device device)
     */
 
    status = vmk_ACPIMapIOResource(gpio_Driver.moduleID,
-                        	       acpiDev,
+                                  acpiDev,
                                   0,
                                   &mappedAddr);
    if (status != VMK_OK) {
