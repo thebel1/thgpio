@@ -181,7 +181,8 @@ class GPIOCommands:
         if pin > GPIO_MAX_PIN:
             print('Invalid pin: {}'.format(pin))
             exit(1)
-        print(self.gpio.pollPin(pin))
+        prev = self.gpio.levPin(pin)
+        print(self.gpio.pollPin(pin, prev))
 
     #########################################################################
     # getPullCmd --
