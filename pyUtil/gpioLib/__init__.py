@@ -154,7 +154,7 @@ class GPIO:
                                                0))
             fcntl.ioctl(self.gpioDev, GPIO_IOCTL_POLL, ioctlData, 1)
             # Data is passed back in the mask/data field
-            out = struct.unpack('<HIH', ioctlData)[1]
+            out = int(struct.unpack('<HIH', ioctlData)[1])
         except Exception as e:
             # Typically, a timeout will have occurred
             return None
@@ -189,11 +189,11 @@ class GPIO:
             exit(1)
 
     #########################################################################
-    # funcSelPin --
+    # funcSel --
     #
     #   Set the function of a GPIO pin.
     #########################################################################
-    def funcSelPin(self, pin, func):
+    def funcSel(self, pin, func):
         reg = gpioPinToSelReg[int(math.floor(pin / 10))]
         shift = ((pin % 10) * 3)
         origVal = self.readReg(reg)

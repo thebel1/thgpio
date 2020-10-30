@@ -145,7 +145,7 @@ gpio_mmioDirectRead(vmk_uint32 offset,
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: reading from GPIO MMIO offset 0x%x",
+      vmk_LogMessage("%s: %s: reading value from GPIO MMIO offset 0x%x",
                      GPIO_DRIVER_NAME,
                      __FUNCTION__,
                      offset);

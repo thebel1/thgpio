@@ -78,11 +78,11 @@ class GPIOCommands:
         self.gpio.writeReg(reg, val)
 
     #########################################################################
-    # funcSelPinCmd --
+    # funcSelCmd --
     #
     #   Command func for setting the function of a GPIO pin.
     #########################################################################
-    def funcSelPinCmd(self, argv):
+    def funcSelCmd(self, argv):
         parser = argparse.ArgumentParser(prog='gpio fsel',
                                         description=('sets the function of a GPIO'
                                                     ' pin'))
@@ -103,7 +103,7 @@ class GPIOCommands:
         if func not in gpioFuncSelectors.keys():
             print('Invalid function: {}'.format(func))
             exit(1)
-        self.gpio.funcSelPin(pin, func)
+        self.gpio.funcSel(pin, func)
 
     #########################################################################
     # setPinCmd --
@@ -242,7 +242,7 @@ def main(argv):
         'info': cmdsObj.infoCmd,
         'read': cmdsObj.readRegCmd,
         'write': cmdsObj.writeRegCmd,
-        'fsel': cmdsObj.funcSelPinCmd,
+        'fsel': cmdsObj.funcSelCmd,
         'set': cmdsObj.setPinCmd,
         'clear': cmdsObj.clrPinCmd,
         'level': cmdsObj.levPinCmd,
