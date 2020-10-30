@@ -28,7 +28,7 @@ class FanShim:
     #   Turn on/off the FanShim fan.
     #########################################################################
     def toggleFan(self):
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_FAN, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_FAN, 'OUT')
         val = self.gpio.levPin(GPIO_FANSHIM_PIN_FAN)
         if val:
             self.gpio.clrPin(GPIO_FANSHIM_PIN_FAN)
@@ -44,8 +44,8 @@ class FanShim:
         buf = [0, 0, 0, 0,
             255, blue, green, red,
             ~0, ~0, ~0, ~0]
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_DATA, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_DATA, 'OUT')
         self.gpio.clrPin(GPIO_FANSHIM_PIN_CLOCK)
         self.gpio.clrPin(GPIO_FANSHIM_PIN_DATA)
         for i in range(len(buf)):
@@ -76,8 +76,8 @@ class FanShim:
                 ~0, ~0, ~0, ~0]
         curBuf = bufOff
         intervalUs = intervalMs * 1000
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_DATA, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_DATA, 'OUT')
         self.gpio.clrPin(GPIO_FANSHIM_PIN_CLOCK)
         self.gpio.clrPin(GPIO_FANSHIM_PIN_DATA)
         startTime = time.monotonic()
@@ -115,8 +115,8 @@ class FanShim:
             ~0, ~0, ~0, ~0]
         curCol = [0, 0, 0]
         intervalSec = (periodMs / 1000) / 256
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_DATA, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_DATA, 'OUT')
         self.gpio.clrPin(GPIO_FANSHIM_PIN_CLOCK)
         self.gpio.clrPin(GPIO_FANSHIM_PIN_DATA)
         sign = 1
@@ -159,8 +159,8 @@ class FanShim:
             ~0, ~0, ~0, ~0]
         intervalSec = (periodMs / 1000) / 256
         col = [255, 0, 0]
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
-        self.gpio.funcSelPin(GPIO_FANSHIM_PIN_DATA, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_CLOCK, 'OUT')
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_DATA, 'OUT')
         self.gpio.clrPin(GPIO_FANSHIM_PIN_CLOCK)
         self.gpio.clrPin(GPIO_FANSHIM_PIN_DATA)
         k = 1
@@ -198,6 +198,27 @@ class FanShim:
             buf[7] = col[2]
             time.sleep(0)
 
+    #########################################################################
+    # printBtnChng --
+    #
+    #   Prints changes to the button state (pressed or released).
+    #########################################################################
+    def printBtnChng(self):
+        self.gpio.funcSel(GPIO_FANSHIM_PIN_BUTTON, 'IN')
+        self.gpio.setPull(GPIO_FANSHIM_PIN_BUTTON, 'UP')
+        time.sleep(0.1)
+        prev = self.gpio.levPin(GPIO_FANSHIM_PIN_BUTTON)
+        while True:
+            cur = self.gpio.pollPin(GPIO_FANSHIM_PIN_BUTTON, prev)
+            if cur != prev:
+                # Don't use an if/elif block here; Python doesn't handle changes
+                # to the button state properly then.
+                sys.stdout.write('Button pressed\n' if cur < prev              \
+                                 else 'Button released\n')
+                sys.stdout.flush()
+            prev = cur
+            time.sleep(0)
+
 #########################################################################
 # main --
 #
@@ -208,6 +229,7 @@ def main(argv):
     progDesc = ('Utility for controlling the Pimoroni FanShim.'
                 '\n\nCommands:'
                 '\nfan'
+                '\nbutton'
                 '\nset\t<red> <green> <blue>'
                 '\nflash\t<red> <green> <blue>'
                 '\npulse\t<[red|green|blue]>'
@@ -255,6 +277,8 @@ def main(argv):
     elif args.command == 'gradient':
         fanShim.gradientLED(8, 2000)
         fanShim.setLED(0, 0, 0)
+    elif args.command == 'button':
+        fanShim.printBtnChng()
 
 if __name__ == '__main__':
     main(sys.argv)

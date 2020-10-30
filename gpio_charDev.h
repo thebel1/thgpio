@@ -27,6 +27,9 @@
  */
 typedef VMK_ReturnStatus (*gpio_CharDevOpenCB_t)(vmk_CharDevFdAttr *attr);
 typedef VMK_ReturnStatus (*gpio_CharDevCloseCB_t)(vmk_CharDevFdAttr *attr);
+
+typedef VMK_ReturnStatus (*gpio_CharDevIoctlCB_t)(unsigned int cmd,
+                                                  gpio_IoctlCookie_t *ioctlData);
 typedef VMK_ReturnStatus (*gpio_CharDevReadCB_t)(char *buffer,
                                                  vmk_ByteCount nbytes,
                                                  vmk_loff_t *ppos,
@@ -38,6 +41,7 @@ typedef VMK_ReturnStatus (*gpio_CharDevWriteCB_t)(char *buffer,
 typedef struct gpio_CharDevCallbacks_t {
    gpio_CharDevOpenCB_t open;
    gpio_CharDevCloseCB_t close;
+   gpio_CharDevIoctlCB_t ioctl;
    gpio_CharDevReadCB_t read;
    gpio_CharDevWriteCB_t write;
 } gpio_CharDevCallbacks_t;

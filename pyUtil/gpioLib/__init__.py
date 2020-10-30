@@ -5,6 +5,8 @@
 ################################################################################
 
 import math
+import struct
+import fcntl
 
 #########################################################################
 
@@ -15,6 +17,14 @@ GPIO_MMIO_SIZE = 248
 GPIO_INT_MAX = pow(2, 32) - 1
 GPIO_PIN_MASK = 31
 GPIO_RPI_BYTE_ORDER = 'little'
+GPIO_IOCTL_COOKIE_SIZE = 8
+
+#########################################################################
+
+#
+# GPIO ioctl commands
+#
+GPIO_IOCTL_POLL = 1
 
 #########################################################################
 
@@ -120,6 +130,37 @@ class GPIO:
         self.gpioDev.close()
 
     #########################################################################
+    # pollReg --
+    #
+    #   Polls a GPIO register until the masked bits have changed. Then,
+    #   returns the registers current value.
+    #########################################################################
+    def pollReg(self, reg, mask):
+        try:
+            #
+            # The GPIO driver's ioctl struct looks like this:
+            #
+            # +--------------------+
+            # |  uint16_t offset   |
+            # +--------------------+
+            # | uint32_t mask/data |
+            # +--------------------+
+            # |  uint16_t padding  |
+            # +--------------------+
+            #
+            ioctlData = bytearray(struct.pack('<HIH',
+                                              gpioRegisters[reg],
+                                              mask,
+                                               0))
+            fcntl.ioctl(self.gpioDev, GPIO_IOCTL_POLL, ioctlData, 1)
+            # Data is passed back in the mask/data field
+            out = int(struct.unpack('<HIH', ioctlData)[1])
+        except Exception as e:
+            # Typically, a timeout will have occurred
+            return None
+        return out
+
+    #########################################################################
     # readReg --
     #
     #   Read 4-byte GPIO register value.
@@ -148,11 +189,11 @@ class GPIO:
             exit(1)
 
     #########################################################################
-    # funcSelPin --
+    # funcSel --
     #
     #   Set the function of a GPIO pin.
     #########################################################################
-    def funcSelPin(self, pin, func):
+    def funcSel(self, pin, func):
         reg = gpioPinToSelReg[int(math.floor(pin / 10))]
         shift = ((pin % 10) * 3)
         origVal = self.readReg(reg)
@@ -198,7 +239,31 @@ class GPIO:
             val = self.readReg('GPLEV0')
         else:
             val = self.readReg('GPLEV1')
-        out = (1 if ((val & (1 << (pin & GPIO_PIN_MASK))) != 0) else 0)
+        if (val & (1 << (pin & GPIO_PIN_MASK))) != 0:
+            out = 1
+        else:
+            out = 0
+        return out
+
+    #########################################################################
+    # pollPin --
+    #
+    #   Polls a pin's value until it changes and then returns its new value.
+    #########################################################################
+    def pollPin(self, pin, prev):
+        if pin < 32:
+            mask = 1 << pin
+            cur = self.pollReg('GPLEV0', mask)
+        else:
+            mask = 1 << (pin & GPIO_PIN_MASK)
+            cur = self.pollReg('GPLEV1', mask)
+        if cur is not None:
+            if (cur & (1 << (pin & GPIO_PIN_MASK))) != 0:
+                out = 1
+            else:
+                out = 0
+        else:
+            return prev
         return out
 
     #########################################################################
