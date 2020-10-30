@@ -27,4 +27,4 @@ To install the driver, download the VIB file in the build directory and copy it 
 
 Install it as described here: https://kb.vmware.com/s/article/2008939
 
-I would recommend download the Python library in ./pyUtil/pyLib/ as well so you don't have to worry about bit twiddling and calculating addresses yourself.
+I would recommend downloading the Python library in ./pyUtil/gpioLib/ as well so you don't have to worry about all the bit twiddling.
