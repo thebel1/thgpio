@@ -5,11 +5,6 @@
 \******************************************************************************/
 
 /*
- * TODO:
- *    - Set up logger
- */
-
-/*
  * gpio_os.c --
  * 
  *    Module initialization and other OS stuff.
@@ -101,9 +96,7 @@ init_module(void)
    
    status = vmk_HeapCreate(&heapProps, &heapID);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: vmk_HeapCreate failed: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
+      vmk_WarningMessage("vmk_HeapCreate failed: %s",
                          vmk_StatusToString(status));
       goto heap_create_failed;
    }
@@ -125,9 +118,7 @@ init_module(void)
    
    status = vmk_LogRegister(&logProps, &gpio_Driver.logger);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to register logger: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
+      vmk_WarningMessage("failed to register logger: %s",
                          vmk_StatusToString(status));
       goto logger_reg_failed;
    }
@@ -140,10 +131,9 @@ init_module(void)
    status = vmk_NameInitialize(&logicalBusName, VMK_LOGICAL_BUS_NAME);
    status = vmk_BusTypeFind(&logicalBusName, &gpio_logicalBusType);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: vmk_BusTypeFind for logical bus failed: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver.logger,
+                  "vmk_BusTypeFind for logical bus failed: %s",
+                  vmk_StatusToString(status));
       goto logical_bus_failed;
    }
 
@@ -160,32 +150,37 @@ init_module(void)
    status = vmk_DriverRegister(&driverProps,
                                &(gpio_Driver.driverHandle));
    if (status == VMK_OK) {
-      vmk_LogMessage("%s: %s: vmk_DriverRegister successful",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__);
+      vmk_Log(gpio_Driver.logger,
+              "vmk_DriverRegister successful",
+              GPIO_DRIVER_NAME,
+              __FUNCTION__);
    }
    else {
-      vmk_WarningMessage("%s: %s: vmk_DriverRegister failed: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver.logger,
+                  "vmk_DriverRegister failed: %s",
+                  vmk_StatusToString(status));
       goto driver_register_failed;
    }
 
    /*
     * Init GPIO driver
     */
-   gpio_drvInit(&gpio_Device);
+   gpio_drvInit(&gpio_Driver, &gpio_Device);
 
    return VMK_OK;
 
 driver_register_failed:
 logical_bus_failed:
+   vmk_LogUnregister(gpio_Driver.logger);
+
 logger_reg_failed:
    vmk_HeapDestroy(gpio_Driver.heapID);
 
 heap_create_failed:
-   vmk_WarningMessage("%s: %s failed", GPIO_DRIVER_NAME, __FUNCTION__);
+   vmk_Warning(gpio_Driver.logger,
+               "%s: %s failed",
+               GPIO_DRIVER_NAME,
+               __FUNCTION__);
 
    return status;
 }
@@ -238,11 +233,10 @@ gpio_attachDevice(vmk_Device device)
     * sure we're not initializing more.
     */
    if (adapter->initialized != VMK_FALSE) {
-      vmk_WarningMessage("%s: %s: gpio device %p already initialized as %p",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         device,
-                         adapter->vmkDevice);
+      vmk_Warning(gpio_Driver.logger,
+                  "gpio device %p already initialized as %p",
+                  device,
+                  adapter->vmkDevice);
       status = VMK_EXISTS;
       goto device_already_exists;
    }
@@ -252,11 +246,10 @@ gpio_attachDevice(vmk_Device device)
     */
    status = vmk_DeviceGetRegistrationData(device, (vmk_AddrCookie *)&acpiDev);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to get acpi dev for vmk dev %p: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         device,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver.logger,
+                  "failed to get acpi dev for vmk dev %p: %s",
+                  device,
+                  vmk_StatusToString(status));
       goto get_acpi_dev_failed;
    }
 
@@ -268,11 +261,10 @@ gpio_attachDevice(vmk_Device device)
       goto not_an_acpi_dev;
    }
 
-   vmk_LogMessage("%s: %s: retrieved acpi dev %p for vmk dev %p",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  acpiDev,
-                  device);
+   vmk_Log(gpio_Driver.logger,
+           "retrieved acpi dev %p for vmk dev %p",
+           acpiDev,
+           device);
 
    /*
     * Map io resources
@@ -283,30 +275,27 @@ gpio_attachDevice(vmk_Device device)
                                   0,
                                   &mappedAddr);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: unable to acquire io resources"
-                         " for device %p: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         device,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver.logger,
+                  "unable to acquire io resources"
+                  " for device %p: %s",
+                  device,
+                  vmk_StatusToString(status));
       goto iores_map_failed;
    }
    else if (mappedAddr.type != VMK_IORESOURCE_MEM) {
-      vmk_WarningMessage("%s: %s: mapped io space %p of type %d, expecting %d",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         mappedAddr,
-                         mappedAddr.type,
-                         VMK_IORESOURCE_MEM);
+      vmk_Warning(gpio_Driver.logger,
+                  "mapped io space %p of type %d, expecting %d",
+                  mappedAddr,
+                  mappedAddr.type,
+                  VMK_IORESOURCE_MEM);
       goto iores_map_failed;
    }
 
-   vmk_LogMessage("%s: %s: mapped io space at %p of length %d for device %p",
-                  GPIO_DRIVER_NAME,
-                  __FUNCTION__,
-                  (void*)mappedAddr.address.vaddr,
-                  mappedAddr.len,
-                  device);
+   vmk_Log(gpio_Driver.logger,
+           "mapped io space at %p of length %d for device %p",
+           (void*)mappedAddr.address.vaddr,
+           mappedAddr.len,
+           device);
 
    /*
     * Init adapter
@@ -335,11 +324,10 @@ gpio_attachDevice(vmk_Device device)
     */
    status = vmk_DeviceSetAttachedDriverData(adapter->vmkDevice, adapter);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to attach device %p: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         adapter->vmkDevice,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver.logger,
+                  "failed to attach device %p: %s",
+                  adapter->vmkDevice,
+                  vmk_StatusToString(status));
       goto device_attach_failed;
    }
 
@@ -350,9 +338,10 @@ iores_map_failed:
 not_an_acpi_dev:
 get_acpi_dev_failed:
 device_already_exists:
-   vmk_WarningMessage("%s: %s: no device attached",
-                      GPIO_DRIVER_NAME,
-                      __FUNCTION__);
+   vmk_Warning(gpio_Driver.logger,
+               "no device attached",
+               GPIO_DRIVER_NAME,
+               __FUNCTION__);
    return status;
 }
 

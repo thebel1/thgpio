@@ -7,6 +7,7 @@
 
 import sys
 import argparse
+import time
 from gpioLib import *
 
 #########################################################################
@@ -34,10 +35,10 @@ class GPIOCommands:
     #
     #   Command func for reading register value.
     #########################################################################
-    def readRegCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio read',
-                                        description=('Read the value of a GPIO'
-                                                    ' register'))
+    def readRegCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('gpio read',
+                                       help=('Read the value of a GPIO'
+                                             ' register'))
         parser.add_argument('register',
                             nargs=1,
                             type=str,
@@ -54,10 +55,10 @@ class GPIOCommands:
     #
     #   Command func for writing register value.
     #########################################################################
-    def writeRegCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio write',
-                                        description=('Write 4 bytes to a GPIO'
-                                                    ' register'))
+    def writeRegCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('gpio write',
+                                       help=('Write 4 bytes to a GPIO'
+                                             ' register'))
         parser.add_argument('register',
                             nargs=1,
                             type=str,
@@ -82,10 +83,10 @@ class GPIOCommands:
     #
     #   Command func for setting the function of a GPIO pin.
     #########################################################################
-    def funcSelCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio fsel',
-                                        description=('sets the function of a GPIO'
-                                                    ' pin'))
+    def funcSelCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('gpio fsel',
+                                       help=('sets the function of a GPIO'
+                                             ' pin'))
         parser.add_argument('pin',
                             nargs=1,
                             type=int,
@@ -110,9 +111,9 @@ class GPIOCommands:
     #
     #   Command func for setting a GPIO pin to 1.
     #########################################################################
-    def setPinCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio set',
-                                        description=('sets a GPIO pin to 1'))
+    def setPinCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('gpio set',
+                                       help=('sets a GPIO pin to 1'))
         parser.add_argument('pin',
                             nargs=1,
                             type=int,
@@ -129,9 +130,9 @@ class GPIOCommands:
     #
     #   Command func for clearing a GPIO pin.
     #########################################################################
-    def clrPinCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio clear',
-                                        description=('clears a GPIO pin'))
+    def clrPinCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('clear',
+                                       help=('clears a GPIO pin'))
         parser.add_argument('pin',
                             nargs=1,
                             type=int,
@@ -148,10 +149,10 @@ class GPIOCommands:
     #
     #   Command func for getting the level of a GPIO pin.
     #########################################################################
-    def levPinCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio level',
-                                        description=('gets the level of a GPIO'
-                                                     ' pin'))
+    def levPinCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('level',
+                                       help=('gets the level of a GPIO'
+                                             ' pin'))
         parser.add_argument('pin',
                             nargs=1,
                             type=int,
@@ -168,10 +169,10 @@ class GPIOCommands:
     #
     #   Command func for getting the level of a GPIO pin.
     #########################################################################
-    def pollPinCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio poll',
-                                        description=('polls the level of a GPIO'
-                                                     ' pin until it changes'))
+    def pollPinCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('poll',
+                                        help=('polls the level of a GPIO'
+                                              ' pin until it changes'))
         parser.add_argument('pin',
                             nargs=1,
                             type=int,
@@ -182,17 +183,23 @@ class GPIOCommands:
             print('Invalid pin: {}'.format(pin))
             exit(1)
         prev = self.gpio.levPin(pin)
-        print(self.gpio.pollPin(pin, prev))
+        while True:
+            cur = self.gpio.pollPin(pin, prev)
+            if cur != prev:
+                print(cur)
+                break
+            prev = cur
+            time.sleep(0)
 
     #########################################################################
     # getPullCmd --
     #
     #   Command func for getting the pull of a GPIO pin.
     #########################################################################
-    def getPullCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio getpull',
-                                        description=('gets the pull of a GPIO'
-                                                     ' pin'))
+    def getPullCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('getpull',
+                                       help=('gets the pull of a GPIO'
+                                             ' pin'))
         parser.add_argument('pin',
                             nargs=1,
                             type=int,
@@ -209,10 +216,10 @@ class GPIOCommands:
     #
     #   Command func for setting the pull of a GPIO pin.
     #########################################################################
-    def setPullCmd(self, argv):
-        parser = argparse.ArgumentParser(prog='gpio setpull',
-                                        description=('sets the pull of a GPIO'
-                                                    ' pin'))
+    def setPullCmd(self, subParsers, argv):
+        parser = subParsers.add_parser('setpull',
+                                       help=('sets the pull of a'
+                                             'GPIO pin'))
         parser.add_argument('pin',
                             nargs=1,
                             type=int,
@@ -266,7 +273,7 @@ def main(argv):
                 '\nset\t<pin>'
                 '\nclear\t<pin>'
                 '\nlevel\t<pin>'
-                '\npoll\t<pin>'
+                '\npoll\t<pin> <timeout>'
                 '\ngetpull\t<pin>'
                 '\nsetpull\t<pin> <pull>')
     parser = argparse.ArgumentParser(prog='gpio',
@@ -280,8 +287,9 @@ def main(argv):
     if args.command not in commands.keys():
         print('Invalid command: {}'.format(args.command))
         exit(1)
+    subParsers = parser.add_subparsers()
     # Call the command func
-    commands[args.command](args.args)
+    commands[args.command](subParsers, args.args)
 
 if __name__ == '__main__':
     main(sys.argv)

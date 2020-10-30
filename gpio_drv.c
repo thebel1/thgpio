@@ -18,6 +18,7 @@
 
 /***********************************************************************/
 
+static gpio_Driver_t *gpio_Driver;
 static gpio_Device_t *gpio_Device;
 
 /*
@@ -34,10 +35,12 @@ static gpio_Device_t *gpio_Device;
  ***********************************************************************
  */
 VMK_ReturnStatus
-gpio_drvInit(gpio_Device_t *adapter)
+gpio_drvInit(gpio_Driver_t *driver,
+             gpio_Device_t *adapter)
 {
    VMK_ReturnStatus status = VMK_OK;
 
+   gpio_Driver = driver;
    gpio_Device = adapter;
 
    return status;
@@ -69,11 +72,10 @@ gpio_mmioPoll(vmk_uint32 offset, // IN
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: polling GPIO MMIO offset 0x%x with mask 0x%x",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     offset,
-                     mask);
+      vmk_Log(gpio_Driver->logger,
+              "polling GPIO MMIO offset 0x%x with mask 0x%x",
+              offset,
+              mask);
    }
 #endif /* GPIO_DEBUG */
 
@@ -115,11 +117,10 @@ poll_timed_out:
    return VMK_TIMEOUT;
 
 mmio_read_failed:
-   vmk_WarningMessage("%s: %s: read from GPIO MMIO offset 0x%x failed: %s",
-                      GPIO_DRIVER_NAME,
-                      __FUNCTION__,
-                      offset,
-                      vmk_StatusToString(status));
+   vmk_Warning(gpio_Driver->logger,
+               "read from GPIO MMIO offset 0x%x failed: %s",
+               offset,
+               vmk_StatusToString(status));
    return status;
 }
 
@@ -145,10 +146,9 @@ gpio_mmioDirectRead(vmk_uint32 offset,
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: reading value from GPIO MMIO offset 0x%x",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     offset);
+      vmk_Log(gpio_Driver->logger,
+              "reading value from GPIO MMIO offset 0x%x",
+              offset);
    }
 #endif /* GPIO_DEBUG */
 
@@ -181,11 +181,10 @@ gpio_mmioDirectWrite(vmk_uint32 offset,
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: writing value 0x%x to GPIO MMIO offset 0x%x",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     value,
-                     offset);
+      vmk_Log(gpio_Driver->logger,
+              "writing value 0x%x to GPIO MMIO offset 0x%x",
+              value,
+              offset);
    }
 #endif /* GPIO_DEBUG */
 
@@ -272,14 +271,13 @@ gpio_mmioIoctlCB(unsigned int cmd,           // IN
        || cmd <= GPIO_IOCTL_INVALID
        || cmd > GPIO_IOCTL_MAX) {
       status = VMK_BAD_PARAM;
-      vmk_WarningMessage("%s: %s: invalid ioctl: cmd %d data %p"
-                         " (0x%x, 0x%x)",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         cmd,
-                         *data,
-                         ioctlData.offset,
-                         ioctlData.mask);
+      vmk_Warning(gpio_Driver->logger,
+                  "invalid ioctl: cmd %d data %p"
+                  " (0x%x, 0x%x)",
+                  cmd,
+                  *data,
+                  ioctlData.offset,
+                  ioctlData.mask);
       goto ioctl_invalid;
    }
 
@@ -334,10 +332,9 @@ gpio_mmioReadCB(char *buffer,
    if (offset % GPIO_REG_SIZE != 0
        || offset > GPIO_MMIO_SIZE - GPIO_REG_SIZE) {
       status = VMK_FAILURE;
-      vmk_WarningMessage("%s: %s: attempted read from invalid MMIO offset 0x%x",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         offset);
+      vmk_Warning(gpio_Driver->logger,
+                  "attempted read from invalid MMIO offset 0x%x",
+                  offset);
       goto invalid_mmio_offset;
    }
 
@@ -346,10 +343,9 @@ gpio_mmioReadCB(char *buffer,
     */
    status = gpio_mmioDirectRead(offset, &value);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to read from GPIO MMIO region: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to read from GPIO MMIO region: %s",
+                  vmk_StatusToString(status));
       *nread = 0;
       goto mmio_read_failed;
    }
@@ -359,11 +355,10 @@ gpio_mmioReadCB(char *buffer,
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: read 0x%x from offset 0x%x",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     value,
-                     offset);
+      vmk_Log(gpio_Driver->logger,
+              "read 0x%x from offset 0x%x",
+              value,
+              offset);
    }
 #endif /* GPIO_DEBUG */
 
@@ -408,20 +403,18 @@ gpio_mmioWriteCB(char *buffer,
    if (offset % GPIO_REG_SIZE != 0
        || offset + nbytes > GPIO_MMIO_SIZE) {
       status = VMK_FAILURE;
-      vmk_WarningMessage("%s: %s: attempted write to invalid MMIO offset 0x%x",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         offset);
+      vmk_Warning(gpio_Driver->logger,
+                  "attempted write to invalid MMIO offset 0x%x",
+                  offset);
       goto invalid_mmio_offset;
    }
 
    value = *(vmk_uint32*)buffer;
    status = gpio_mmioDirectWrite(offset, (vmk_uint32)value);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to write to GPIO MMIO region: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to write to GPIO MMIO region: %s",
+                  vmk_StatusToString(status));
       *nwritten = 0;
       goto mmio_write_failed;
    }

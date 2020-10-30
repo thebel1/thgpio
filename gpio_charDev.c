@@ -117,20 +117,18 @@ gpio_charDevRegister(gpio_Driver_t *gpioDriver,
 
    status = vmk_DeviceRegister(&deviceProps, parentDevice, &newDevice);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to register device: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to register device: %s",
+                  vmk_StatusToString(status));
       goto register_device_failed;
    }
 
    status = vmk_LogicalFreeBusAddress(gpioDriver->driverHandle,
                                       devID.busAddress);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to free logical bus: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to free logical bus: %s",
+                  vmk_StatusToString(status));
       goto free_bus_failed;
    }
 
@@ -142,8 +140,8 @@ gpio_charDevRegister(gpio_Driver_t *gpioDriver,
    return VMK_OK;
 
 free_bus_failed:
-vmk_LogicalFreeBusAddress(gpioDriver->driverHandle,
-                          devID.busAddress);
+   vmk_LogicalFreeBusAddress(gpioDriver->driverHandle,
+                             devID.busAddress);
 register_device_failed:
 logical_bus_failed:
    return status;
@@ -170,10 +168,9 @@ gpio_charVmkDevRemove(vmk_Device logicalDev)
    status = vmk_DeviceUnregister(logicalDev);
    if (status != VMK_OK)
    {
-      vmk_WarningMessage("%s: %s: failed to unregister device: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to unregister device: %s",
+                  vmk_StatusToString(status));
    }
 
    return status;
@@ -201,19 +198,17 @@ gpio_charDevAssoc(vmk_AddrCookie charDevPriv,
 
    status = vmk_CharDeviceGetAlias(charDevHandle, &charDevAlias);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to obtain logical device alias: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to obtain logical device alias: %s",
+                  vmk_StatusToString(status));
       goto get_alias_failed;
    }
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: obtained logical device alias %s",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     charDevAlias.string);
+      vmk_Log(gpio_Driver->logger,
+              "obtained logical device alias %s",
+              charDevAlias.string);
    }
 #endif /* GPIO_DEBUG */
 
@@ -271,10 +266,9 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
    fileData = vmk_HeapAlloc(gpio_Driver->heapID, sizeof(*fileData));
    if (fileData == NULL) {
       status = VMK_NO_MEMORY;
-      vmk_WarningMessage("%s: %s: failed to create file private data: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to create file private data: %s",
+                  vmk_StatusToString(status));
       goto file_priv_alloc_failed;
    }
    vmk_Memset(fileData, 0, sizeof(*fileData));
@@ -287,10 +281,9 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
    lockProps.heapID = gpio_Driver->heapID;
    status = vmk_NameInitialize(&lockProps.name, GPIO_DRIVER_NAME);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to init lock name: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to init lock name: %s",
+                  vmk_StatusToString(status));
       goto lock_init_failed;
    }
 
@@ -299,10 +292,9 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
    lockProps.rank = VMK_SPINLOCK_UNRANKED;
    status = vmk_SpinlockCreate(&lockProps, &fileData->lock);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: failed to create spinlock: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "failed to create spinlock: %s",
+                  vmk_StatusToString(status));
       goto lock_init_failed;
    }
 
@@ -322,11 +314,10 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: opened file; priv %p lock %p",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     fileData,
-                     fileData->lock);
+      vmk_Log(gpio_Driver->logger,
+              "opened file; priv %p lock %p",
+              fileData,
+              fileData->lock);
    }
 #endif /* GPIO_DEBUG */
 
@@ -363,7 +354,7 @@ gpio_charDevClose(vmk_CharDevFdAttr *attr)
 
    if (fileData == NULL) {
       status = VMK_BAD_PARAM;
-      vmk_WarningMessage("%s: %s: file data null");
+      vmk_Warning(gpio_Driver->logger, "file data null");
       goto file_data_null;
    }
 
@@ -410,7 +401,7 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
 
    if (fileData == NULL) {
       status = VMK_BAD_PARAM;
-      vmk_WarningMessage("%s: %s: file data null");
+      vmk_Warning(gpio_Driver->logger, "file data null");
       goto file_data_null;
    }
 
@@ -419,21 +410,19 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
                              (vmk_VA)userData,
                              sizeof(ioctlData));
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: unable to copy ioctl data from UW ptr %p: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         userData,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "unable to copy ioctl data from UW ptr %p: %s",
+                  userData,
+                  vmk_StatusToString(status));
       goto ioctl_uw2vmk_failed;
    }
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: executing ioctl cmd %d with data %p",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     cmd,
-                     userData);
+      vmk_Log(gpio_Driver->logger,
+              "executing ioctl cmd %d with data %p",
+              cmd,
+              userData);
    }
 #endif
 
@@ -442,12 +431,11 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
    status = gpio_CharDevCBs->ioctl(cmd, &ioctlData);
    vmk_SpinlockUnlock(fileData->lock);
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: ioctl cmd %d with data %p failed: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         cmd,
-                         userData,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "ioctl cmd %d with data %p failed: %s",
+                  cmd,
+                  userData,
+                  vmk_StatusToString(status));
       goto ioctl_cmd_failed;
    }
 
@@ -456,10 +444,9 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
                            (vmk_VA)&ioctlData,
                            sizeof(ioctlData));
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: unable to copy ioctl data back to UW: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "unable to copy ioctl data back to UW: %s",
+                  vmk_StatusToString(status));
       goto ioctl_vmk2uw_failed;
    }
 
@@ -549,32 +536,29 @@ gpio_charDevIO(vmk_CharDevFdAttr *attr,
 
    if (attr == NULL || ppos == NULL || ndone == NULL) {
       status = VMK_BAD_PARAM;
-      vmk_WarningMessage("%s: %s: invalid write command received;"
-                         " attr %p ppos %p ndone %p",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         attr, ppos, ndone);
+      vmk_Warning(gpio_Driver->logger,
+                  "invalid write command received;"
+                  " attr %p ppos %p ndone %p",
+                  attr, ppos, ndone);
       goto invalid_params;
    }
 
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: nbytes %lu offset %ld buffer %p",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     nbytes,
-                     *ppos,
-                     buffer);
+      vmk_Log(gpio_Driver->logger,
+              "nbytes %lu offset %ld buffer %p",
+              nbytes,
+              *ppos,
+              buffer);
    }
 #endif /* GPIO_DEBUG */
 
    localBuffer = vmk_HeapAlloc(gpio_Driver->heapID, GPIO_CHARDEV_BUFFER_SIZE);
    if (localBuffer == NULL) {
       status = VMK_NO_MEMORY;
-      vmk_WarningMessage("%s: %s: unable to allocate local buffer: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "unable to allocate local buffer: %s",
+                  vmk_StatusToString(status));
       goto localBuffer_alloc_failed;
    }
 
@@ -621,10 +605,9 @@ gpio_charDevIO(vmk_CharDevFdAttr *attr,
    *ndone = doneBytes;
 
    if (status != VMK_OK) {
-      vmk_WarningMessage("%s: %s: I/O failed to file %p: %s",
-                         GPIO_DRIVER_NAME,
-                         __FUNCTION__,
-                         vmk_StatusToString(status));
+      vmk_Warning(gpio_Driver->logger,
+                  "I/O failed to file %p: %s",
+                  vmk_StatusToString(status));
       goto io_failed;
    }
 
@@ -660,7 +643,7 @@ gpio_charDevPoll(vmk_CharDevFdAttr *attr,
 
    if (fileData == NULL) {
       status = VMK_BAD_PARAM;
-      vmk_WarningMessage("%s: %s: file data null");
+      vmk_Warning(gpio_Driver->logger, "file data null");
       goto file_data_null;
    }
 
@@ -683,10 +666,9 @@ gpio_charDevPoll(vmk_CharDevFdAttr *attr,
          fileData->timerPending = VMK_TRUE;
       }
       else {
-         vmk_WarningMessage("%s: %s: failed to create poll timer: %s",
-                            GPIO_DRIVER_NAME,
-                            __FUNCTION__,
-                            vmk_StatusToString(status));
+         vmk_Warning(gpio_Driver->logger,
+                     "failed to create poll timer: %s",
+                     vmk_StatusToString(status));
          goto create_poll_timer_failed;
       }
    }
@@ -724,7 +706,7 @@ gpio_charDevTimerCB(vmk_TimerCookie data)
    gpio_CharFileData_t *fileData = (gpio_CharFileData_t *)data.ptr;
 
    if (fileData == NULL) {
-      vmk_WarningMessage("%s: %s: file data null");
+      vmk_Warning(gpio_Driver->logger, "file data null");
       goto file_data_null;
    }
 
@@ -768,10 +750,9 @@ gpio_charDevFileDestroy(gpio_CharFileData_t *fileData)
 {
 #ifdef GPIO_DEBUG
    {
-      vmk_LogMessage("%s: %s: destroying file %p",
-                     GPIO_DRIVER_NAME,
-                     __FUNCTION__,
-                     fileData);
+      vmk_Log(gpio_Driver->logger,
+              "destroying file %p",
+              fileData);
    }
 #endif /* GPIO_DEBUG */
 

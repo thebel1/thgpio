@@ -64,7 +64,8 @@ typedef enum gpio_IoctlCommands_t {
 
 /***********************************************************************/
 
-VMK_ReturnStatus gpio_drvInit(gpio_Device_t *adapter);
+VMK_ReturnStatus gpio_drvInit(gpio_Driver_t *driver,
+                              gpio_Device_t *adapter);
 
 VMK_ReturnStatus gpio_mmioPoll(vmk_uint32 offset,
                                vmk_uint32 mask,
