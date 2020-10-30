@@ -148,18 +148,16 @@ class GPIO:
             # |  uint16_t padding  |
             # +--------------------+
             #
-            ioctlData = struct.pack('<HIH',
-                                    gpioRegisters[reg],
-                                    mask,
-                                    0)
-            ioctlCookie = bytearray(struct.unpack('<Q', ioctlData)[0].to_bytes(GPIO_IOCTL_COOKIE_SIZE, GPIO_RPI_BYTE_ORDER))
-            print(ioctlCookie)
-            fcntl.ioctl(self.gpioDev, GPIO_IOCTL_POLL, ioctlCookie, 1)
+            ioctlData = bytearray(struct.pack('<HIH',
+                                              gpioRegisters[reg],
+                                              mask,
+                                               0))
+            fcntl.ioctl(self.gpioDev, GPIO_IOCTL_POLL, ioctlData, 1)
             # Data is passed back in the mask/data field
             out = struct.unpack('<HIH', ioctlData)[1]
         except Exception as e:
-            print('Poll failed: {}'.format(e))
-            exit(1)
+            # Typically, a timeout will have occurred
+            return None
         return out
 
     #########################################################################
@@ -252,17 +250,20 @@ class GPIO:
     #
     #   Polls a pin's value until it changes and then returns its new value.
     #########################################################################
-    def pollPin(self, pin):
+    def pollPin(self, pin, prev):
         if pin < 32:
             mask = 1 << pin
-            val = self.pollReg('GPLEV0', mask)
+            cur = self.pollReg('GPLEV0', mask)
         else:
             mask = 1 << (pin & GPIO_PIN_MASK)
-            val = self.pollReg('GPLEV1', mask)
-        if (val & (1 << (pin & GPIO_PIN_MASK))) != 0:
-            out = 1
+            cur = self.pollReg('GPLEV1', mask)
+        if cur is not None:
+            if (cur & (1 << (pin & GPIO_PIN_MASK))) != 0:
+                out = 1
+            else:
+                out = 0
         else:
-            out = 0
+            return prev
         return out
 
     #########################################################################

@@ -405,13 +405,26 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
                   vmk_int32 *result)
 {
    VMK_ReturnStatus status = VMK_OK;
-   gpio_IoctlCookie_t ioctlData = (gpio_IoctlCookie_t)userData;
+   gpio_IoctlCookie_t ioctlData;
    gpio_CharFileData_t *fileData = attr->clientInstanceData.ptr;
 
    if (fileData == NULL) {
       status = VMK_BAD_PARAM;
       vmk_WarningMessage("%s: %s: file data null");
       goto file_data_null;
+   }
+
+   /* Copy ioctl data from UW */
+   status = vmk_CopyFromUser((vmk_VA)&ioctlData,
+                             (vmk_VA)userData,
+                             sizeof(ioctlData));
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: unable to copy ioctl data from UW ptr %p: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         userData,
+                         vmk_StatusToString(status));
+      goto ioctl_uw2vmk_failed;
    }
 
 #ifdef GPIO_DEBUG
@@ -426,7 +439,7 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
 
    /* Call CB */
    vmk_SpinlockLock(fileData->lock);
-   status = gpio_CharDevCBs->ioctl(cmd, (gpio_IoctlCookie_t *)&ioctlData);
+   status = gpio_CharDevCBs->ioctl(cmd, &ioctlData);
    vmk_SpinlockUnlock(fileData->lock);
    if (status != VMK_OK) {
       vmk_WarningMessage("%s: %s: ioctl cmd %d with data %p failed: %s",
@@ -438,8 +451,8 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
       goto ioctl_cmd_failed;
    }
 
-   /* Copy back to UW */
-   status = vmk_CopyToUser((vmk_VA)&userData,
+   /* Copy iotl data back to UW */
+   status = vmk_CopyToUser((vmk_VA)userData,
                            (vmk_VA)&ioctlData,
                            sizeof(ioctlData));
    if (status != VMK_OK) {
@@ -447,13 +460,14 @@ gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
                          GPIO_DRIVER_NAME,
                          __FUNCTION__,
                          vmk_StatusToString(status));
-      goto ioctl_copy_failed;
+      goto ioctl_vmk2uw_failed;
    }
 
    return VMK_OK;
 
-ioctl_copy_failed:
+ioctl_vmk2uw_failed:
 ioctl_cmd_failed:
+ioctl_uw2vmk_failed:
 file_data_null:
    return status;
 }

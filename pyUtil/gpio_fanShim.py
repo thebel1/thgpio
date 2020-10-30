@@ -202,14 +202,17 @@ class FanShim:
     # printBtnChng --
     #
     #   Prints changes to the button state (pressed or released).
+    # 
     #########################################################################
     def printBtnChng(self):
+        prev = self.gpio.levPin(GPIO_FANSHIM_PIN_BUTTON)
         while True:
-            val = pollPin(GPIO_FANSHIM_PIN_BUTTON)
-            if val:
+            cur = self.gpio.pollPin(GPIO_FANSHIM_PIN_BUTTON, prev)
+            if cur > prev:
                 print('Button pressed')
-            else:
+            if prev < cur:
                 print('Button released')
+            prev = cur
             time.sleep(0)
 
 #########################################################################
