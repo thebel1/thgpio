@@ -52,6 +52,7 @@ static vmk_DriverOps gpio_DriverOps = {
 static gpio_CharDevCallbacks_t gpio_CharDevCBs = {
    .open = gpio_mmioOpenCB,
    .close = gpio_mmioCloseCB,
+   .ioctl = gpio_mmioIoctlCB,
    .read = gpio_mmioReadCB,
    .write = gpio_mmioWriteCB,
 };

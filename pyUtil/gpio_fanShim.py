@@ -198,6 +198,20 @@ class FanShim:
             buf[7] = col[2]
             time.sleep(0)
 
+    #########################################################################
+    # printBtnChng --
+    #
+    #   Prints changes to the button state (pressed or released).
+    #########################################################################
+    def printBtnChng(self):
+        while True:
+            val = pollPin(GPIO_FANSHIM_PIN_BUTTON)
+            if val:
+                print('Button pressed')
+            else:
+                print('Button released')
+            time.sleep(0)
+
 #########################################################################
 # main --
 #
@@ -208,6 +222,7 @@ def main(argv):
     progDesc = ('Utility for controlling the Pimoroni FanShim.'
                 '\n\nCommands:'
                 '\nfan'
+                '\nbutton'
                 '\nset\t<red> <green> <blue>'
                 '\nflash\t<red> <green> <blue>'
                 '\npulse\t<[red|green|blue]>'
@@ -255,6 +270,8 @@ def main(argv):
     elif args.command == 'gradient':
         fanShim.gradientLED(8, 2000)
         fanShim.setLED(0, 0, 0)
+    elif args.command == 'button':
+        fanShim.printBtnChng()
 
 if __name__ == '__main__':
     main(sys.argv)

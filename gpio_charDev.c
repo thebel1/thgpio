@@ -331,9 +331,9 @@ gpio_charDevOpen(vmk_CharDevFdAttr *attr)
 #endif /* GPIO_DEBUG */
 
    /* Call CB */
-   gpio_CharDevCBs->open(attr);
+   status = gpio_CharDevCBs->open(attr);
 
-   return VMK_OK;
+   return status;
 
 lock_init_failed:
    vmk_HeapFree(gpio_Driver->heapID, fileData);
@@ -377,7 +377,7 @@ gpio_charDevClose(vmk_CharDevFdAttr *attr)
    }
 
    /* Call CB */
-   gpio_CharDevCBs->close(attr);
+   status = gpio_CharDevCBs->close(attr);
 
 file_data_null:
    return status;
@@ -387,7 +387,8 @@ file_data_null:
  ***********************************************************************
  * gpio_charDevIoctl --
  * 
- *    GPIO chardev-specific I/O ops. Currently not supported.
+ *    GPIO chardev-specific I/O ops. Used for programming reads to input
+ *    pins.
  * 
  * Results:
  *    VMK_OK   on success, error code otherwise
@@ -398,12 +399,63 @@ file_data_null:
  */
 VMK_ReturnStatus
 gpio_charDevIoctl(vmk_CharDevFdAttr *attr,
-                  vmk_uint32 cmd,
+                  unsigned int cmd,
                   vmk_uintptr_t userData,
                   vmk_IoctlCallerSize callerSize,
                   vmk_int32 *result)
 {
-   return VMK_NOT_SUPPORTED;
+   VMK_ReturnStatus status = VMK_OK;
+   gpio_IoctlCookie_t ioctlData = (gpio_IoctlCookie_t)userData;
+   gpio_CharFileData_t *fileData = attr->clientInstanceData.ptr;
+
+   if (fileData == NULL) {
+      status = VMK_BAD_PARAM;
+      vmk_WarningMessage("%s: %s: file data null");
+      goto file_data_null;
+   }
+
+#ifdef GPIO_DEBUG
+   {
+      vmk_LogMessage("%s: %s: executing ioctl cmd %d with data %p",
+                     GPIO_DRIVER_NAME,
+                     __FUNCTION__,
+                     cmd,
+                     userData);
+   }
+#endif
+
+   /* Call CB */
+   vmk_SpinlockLock(fileData->lock);
+   status = gpio_CharDevCBs->ioctl(cmd, (gpio_IoctlCookie_t *)&ioctlData);
+   vmk_SpinlockUnlock(fileData->lock);
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: ioctl cmd %d with data %p failed: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         cmd,
+                         userData,
+                         vmk_StatusToString(status));
+      goto ioctl_cmd_failed;
+   }
+
+   /* Copy back to UW */
+   status = vmk_CopyToUser((vmk_VA)&userData,
+                           (vmk_VA)&ioctlData,
+                           sizeof(ioctlData));
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: unable to copy ioctl data back to UW: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         vmk_StatusToString(status));
+      goto ioctl_copy_failed;
+   }
+
+   return VMK_OK;
+
+ioctl_copy_failed:
+ioctl_cmd_failed:
+file_data_null:
+   return status;
 }
 
 /*
@@ -531,7 +583,9 @@ gpio_charDevIO(vmk_CharDevFdAttr *attr,
          }
          ++doneBytes;
       }
+      vmk_SpinlockLock(fileData->lock);
       status = gpio_CharDevCBs->write(localBuffer, doneBytes, ppos, &doneBytes);
+      vmk_SpinlockUnlock(fileData->lock);
    }
    else { /* Read */
       status = gpio_CharDevCBs->read(localBuffer, nbytes, ppos, &doneBytes);
