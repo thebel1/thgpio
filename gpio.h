@@ -29,6 +29,15 @@
 
 #define GPIO_INT_MAX ((vmk_uint32)~0)
 
+#define GPIO_LOG_ERR       1
+#define GPIO_LOG_WARN      2
+#define GPIO_LOG_NOTE      3
+#define GPIO_LOG_INIT      4
+#define GPIO_LOG_DISC      5
+#define GPIO_LOG_INFO      6
+#define GPIO_LOG_FUNC      7
+#define GPIO_LOG_TRACEIO   8
+
 /***********************************************************************/
 
 #endif /* GPIO_H */

@@ -70,13 +70,14 @@ static gpio_CharDevCallbacks_t gpio_CharDevCBs = {
  *    None
  ***********************************************************************
  */
-int init_module(void)
+VMK_ReturnStatus
+init_module(void)
 {
    VMK_ReturnStatus status;
    vmk_HeapID heapID;
    vmk_HeapCreateProps heapProps;
    vmk_DriverProps driverProps;
-   //vmk_LogProperties logProps;
+   vmk_LogProperties logProps;
    vmk_Name logicalBusName; /* For the chardev */
 
    status = vmk_NameInitialize(&gpio_Driver.driverName, GPIO_DRIVER_NAME);
@@ -110,6 +111,27 @@ int init_module(void)
    vmk_ModuleSetHeapID(gpio_Driver.moduleID, heapID);
    VMK_ASSERT(vmk_ModuleGetHeapID(gpio_Driver.moduleID) == heapID);
    gpio_Driver.heapID = heapID;
+
+   /*
+    * Set up logger
+    */
+
+   status = vmk_NameInitialize(&logProps.name, GPIO_DRIVER_NAME);
+   VMK_ASSERT(status == VMK_OK);
+   logProps.module = gpio_Driver.moduleID;
+   logProps.heap = gpio_Driver.heapID;
+   logProps.defaultLevel = 0;
+   logProps.throttle = NULL;
+   
+   status = vmk_LogRegister(&logProps, &gpio_Driver.logger);
+   if (status != VMK_OK) {
+      vmk_WarningMessage("%s: %s: failed to register logger: %s",
+                         GPIO_DRIVER_NAME,
+                         __FUNCTION__,
+                         vmk_StatusToString(status));
+      goto logger_reg_failed;
+   }
+   vmk_LogSetCurrentLogLevel(gpio_Driver.logger, GPIO_LOG_INIT);
 
    /*
     * Init logical bus
@@ -158,9 +180,10 @@ int init_module(void)
    return VMK_OK;
 
 driver_register_failed:
+logical_bus_failed:
+logger_reg_failed:
    vmk_HeapDestroy(gpio_Driver.heapID);
 
-logical_bus_failed:
 heap_create_failed:
    vmk_WarningMessage("%s: %s failed", GPIO_DRIVER_NAME, __FUNCTION__);
 

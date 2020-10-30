@@ -21,6 +21,7 @@ typedef struct gpio_Driver_t {
    vmk_HeapID heapID;
    vmk_Driver driverHandle;
    vmk_IOResource resHandle;
+   vmk_LogComponent logger;
 } gpio_Driver_t;
 
 /*
@@ -28,29 +29,21 @@ typedef struct gpio_Driver_t {
  * one gpio interface on a Raspberry Pi.
  */
 typedef struct gpio_Device_t {
-   /* since we only have one device, we store its init state */
+   /* Object */
    vmk_Bool initialized;
-   /* vmk device handle */
-   vmk_Device vmkDevice;
-   /* vmk acpi device */
-   vmk_ACPIDevice acpiDevice;
-   /* vmk acpi device info */
-   vmk_ACPIInfo acpiInfo;
-   /* interrupt cookie */
-   vmk_IntrCookie intrCookie;
-   /* number of ints received */
-   vmk_atomic64 intCount;
-   /* refcount for this struct */
    vmk_atomic64 refCount;
-   /* state for int handling */
+   /* Device */
+   vmk_Device vmkDevice;
+   vmk_ACPIDevice acpiDevice;
+   vmk_ACPIInfo acpiInfo;
+   /* Interrupts */
+   vmk_IntrCookie intrCookie;
+   vmk_atomic64 intCount;
    vmk_atomic64 intState;
-   /* world ID to woke on int handler */
    vmk_WorldID wakeWorld;
-   /* mapped io address struct */
+   /* MMIO */
    vmk_MappedResourceAddress mmioMappedAddr;
-   /* base addr for mmio */
    char *mmioBase;
-   /* size of mmio space */
    vmk_ByteCount mmioLen;
 } gpio_Device_t;
 
