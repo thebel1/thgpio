@@ -27,4 +27,6 @@ To install the driver, download the VIB file in the build directory and copy it 
 
 Install it as described here: https://kb.vmware.com/s/article/2008939
 
+Note: you will need to reboot the RPi after installing the VIB.
+
 I would recommend downloading the Python library in ./pyUtil/gpioLib/ as well so you don't have to worry about all the bit twiddling.
