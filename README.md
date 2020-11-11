@@ -31,4 +31,16 @@ Note: you will need to reboot the RPi after installing the VIB.
 
 I would recommend downloading the Python library in ./pyUtil/gpioLib/ as well so you don't have to worry about all the bit twiddling.
 
-Note: You may need to manually change the `GPIO_DEVICE_PATH` variable in `./pyUtil/gpioLib/__init__.py` to reflect the correct name for the character device. This is due to a limitation in the current version of the VMKernel API.
+### Post-Installation Setup
+
+You may need to manually change the `GPIO_DEVICE_PATH` variable in `./pyUtil/gpioLib/__init__.py` to reflect the correct name for the character device. This is due to a limitation in the VMKernel character device API.
+
+1. Open the `__init__.py` file ( https://github.com/thebel1/thgpio/blob/main/pyUtil/gpioLib/__init__.py )
+2. Locate the line `GPIO_DEVICE_PATH = '/dev/vmgfx32'`
+3. Run the command `ls /dev/` in the ESXi shell and locate the vmgfx* device(s)
+4. Note the device number corresponding to the GPIO device
+4.1. If you installed the GPIO driver first, the file path should be `/dev/vmgfx32`
+4.2. If you installed the GPIO driver second, the file should be `/dev/vmgfx33`
+4.3. It just keeps counting up from there as far as I can tell
+5. Go back to the `__init__.py` file and set `GPIO_DEVICE_PATH` to the correct device path
+6. Save the file and you're set
