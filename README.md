@@ -1,3 +1,5 @@
+# Note: all the source code contained in this repository is for educational use only, and is provided with no support, endorsement, warranty, guarantee or implied fitness for a particular purpose. It does not constitute sample driver code. Do not reach out to VMware to support this code. Do not copy and reuse in any commercial or product setting.
+
 # thgpio
 Native ESXi driver for RPi 4's GPIO interface.
 
